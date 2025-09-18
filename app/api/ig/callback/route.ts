@@ -1,9 +1,37 @@
 // app/api/ig/callback/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+// ✅ 以使用者 Session（JWT）操作 DB，讓 RLS 放行（記得 async + await cookies()）
+async function getServerClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+        },
+      },
+    }
+  )
+}
+
+// state 格式：<uuid>:<merchant_slug>
 function parseState(raw: string | null) {
-  const [_, merchant] = (raw ?? '').split(':')
+  const [, merchant] = (raw ?? '').split(':')
   return { merchant: merchant ?? null }
 }
 
@@ -14,14 +42,14 @@ export async function GET(req: Request) {
   const debug = url.searchParams.get('debug') === '1'
   const { merchant } = parseState(stateRaw)
 
-  if (!code) return NextResponse.json({ error: 'oauth_failed', detail: 'missing code' }, { status: 400 })
+  if (!code)    return NextResponse.json({ error: 'oauth_failed', detail: 'missing code' }, { status: 400 })
   if (!merchant) return NextResponse.json({ error: 'oauth_failed', detail: 'missing merchant' }, { status: 400 })
 
   const IG_APP_ID = process.env.IG_APP_ID!
   const IG_APP_SECRET = process.env.IG_APP_SECRET!
   const IG_REDIRECT_URI = process.env.IG_REDIRECT_URI!
 
-  // 1) code -> short-lived token
+  // 1) code → short-lived token
   const r1 = await fetch('https://api.instagram.com/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -30,46 +58,63 @@ export async function GET(req: Request) {
       client_secret: IG_APP_SECRET,
       grant_type: 'authorization_code',
       redirect_uri: IG_REDIRECT_URI,
-      code
-    })
+      code,
+    }),
   })
-  const j1 = await r1.json().catch(() => ({}))
+  const j1: any = await r1.json().catch(() => ({}))
   if (!r1.ok || !j1.access_token) {
-    return NextResponse.json({ error: 'oauth_failed', detail: `code exchange failed: ${j1.error_message || r1.statusText}`, raw: j1 }, { status: 500 })
+    return NextResponse.json(
+      { error: 'oauth_failed', detail: `code exchange failed: ${j1.error_message || r1.statusText}`, raw: j1 },
+      { status: 500 }
+    )
   }
   const shortToken: string = j1.access_token
 
-  // 2) short -> long-lived (60天)
-  const r2 = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${encodeURIComponent(IG_APP_SECRET)}&access_token=${encodeURIComponent(shortToken)}`)
-  const j2 = await r2.json().catch(() => ({}))
+  // 2) short → long-lived (60 天)
+  const r2 = await fetch(
+    `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${encodeURIComponent(
+      IG_APP_SECRET
+    )}&access_token=${encodeURIComponent(shortToken)}`
+  )
+  const j2: any = await r2.json().catch(() => ({}))
   if (!r2.ok || !j2.access_token) {
-    return NextResponse.json({ error: 'oauth_failed', detail: `ll token failed: ${j2.error?.message || r2.statusText}`, raw: j2 }, { status: 500 })
+    return NextResponse.json(
+      { error: 'oauth_failed', detail: `ll token failed: ${j2.error?.message || r2.statusText}`, raw: j2 },
+      { status: 500 }
+    )
   }
   const longToken: string = j2.access_token
-  const expiresIn: number | undefined = j2.expires_in
+  const tokenExpiresAt =
+    j2.expires_in ? new Date(Date.now() + Number(j2.expires_in) * 1000).toISOString() : null
 
   // 3) 取 IG 使用者
-  const rMe = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(longToken)}`)
-  const me = await rMe.json().catch(() => ({}))
+  const rMe = await fetch(
+    `https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(longToken)}`
+  )
+  const me: any = await rMe.json().catch(() => ({}))
   if (!rMe.ok || !me.id) {
-    return NextResponse.json({ error: 'oauth_failed', detail: `fetch me failed: ${me.error?.message || rMe.statusText}`, raw: me }, { status: 500 })
+    return NextResponse.json(
+      { error: 'oauth_failed', detail: `fetch me failed: ${me.error?.message || rMe.statusText}`, raw: me },
+      { status: 500 }
+    )
   }
 
-  // 4) 寫入 DB（用 Service Role）
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  // 4) 寫入 DB（使用者 Session + RLS）
+  const supabase = await getServerClient() // ← 這裡也要 await
+  const { error: upsertErr } = await supabase
+    .from('ig_account')
+    .upsert(
+      {
+        merchant_slug: merchant,
+        ig_user_id: me.id,
+        ig_username: me.username ?? null,
+        access_token: longToken,
+        token_expires_at: tokenExpiresAt,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'merchant_slug,ig_user_id' }
+    )
 
-  const tokenExpiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null
-  const { error: upsertErr } = await supabase.from('ig_account').upsert(
-    {
-      merchant_slug: merchant,
-      ig_user_id: me.id,             // <— 新流程用的 IG user id
-      ig_username: me.username ?? null,
-      access_token: longToken,
-      token_expires_at: tokenExpiresAt,
-      updated_at: new Date().toISOString()
-    },
-    { onConflict: 'merchant_slug,ig_user_id' } // 記得建 unique index
-  )
   if (upsertErr) {
     return NextResponse.json({ error: 'db_upsert_failed', detail: upsertErr.message }, { status: 500 })
   }
@@ -78,7 +123,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, merchant, me, token_expires_at: tokenExpiresAt })
   }
 
-  return NextResponse.redirect(new URL(`/dashboard?merchant=${merchant}&connected=1`, url.origin), { status: 302 })
+  return NextResponse.redirect(
+    new URL(`/dashboard?merchant=${merchant}&connected=1`, url.origin),
+    { status: 302 }
+  )
 }
-
-export const dynamic = 'force-dynamic'
