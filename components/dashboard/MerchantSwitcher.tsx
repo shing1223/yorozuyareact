@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createSupabaseBrowser } from '@/lib/supabaseBrowser'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
 export default function MerchantSwitcher() {
   const supabase = createSupabaseBrowser()
