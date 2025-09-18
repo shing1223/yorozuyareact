@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createSupabaseBrowser } from '@/lib/supabaseBrowser'
+import { createSupabaseBrowser } from '@/lib/supabase-browser'
 import MediaCard from '@/components/dashboard/MediaCard'
 
 export default function IGPickerPage() {
