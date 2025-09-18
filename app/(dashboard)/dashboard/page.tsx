@@ -34,10 +34,11 @@ export default async function DashboardHome() {
       ) : (
         <div className="space-y-3">
           <p>已連結 IG：<b>@{acct.ig_username}</b></p>
-          <form action="/api/ig/sync" method="post">
-            <input type="hidden" name="merchant" value={merchant}/>
-            <button className="px-3 py-1 border rounded">同步最新媒體</button>
-          </form>
+          {/* Dashboard 中 */}
+<form action={`/api/ig/sync?merchant=${merchant}`} method="post">
+  <input type="hidden" name="merchant" value={merchant} />
+  <button className="px-3 py-1 border rounded">同步最新媒體</button>
+</form>
         </div>
       )}
 

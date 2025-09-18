@@ -1,46 +1,71 @@
 // app/api/ig/sync/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServerSupabase } from '@/lib/supabase-ssr'
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
-  const form = await req.formData()
-  const merchant = (form.get('merchant') as string) || 'shop1'
+  const sb = await getServerSupabase()
 
-  const { data: acct, error } = await supabase
+  const url = new URL(req.url)
+  const merchant =
+    url.searchParams.get('merchant') ||
+    String((await req.formData()).get('merchant') || '')
+
+  if (!merchant) {
+    return NextResponse.json({ error: 'bad_request', detail: 'missing merchant' }, { status: 400 })
+  }
+
+  const { data: acct, error: selErr } = await sb
     .from('ig_account')
-    .select('ig_user_id, access_token')
+    .select('merchant_slug, ig_user_id, access_token')
     .eq('merchant_slug', merchant)
     .maybeSingle()
-  if (error || !acct) return NextResponse.json({ error: 'no_account' }, { status: 400 })
 
-  let after: string | undefined
-  do {
-    const url = new URL(`https://graph.instagram.com/${acct.ig_user_id}/media`)
-    url.searchParams.set('fields', 'id,media_type,media_url,thumbnail_url,caption,timestamp,permalink')
-    url.searchParams.set('access_token', acct.access_token)
-    if (after) url.searchParams.set('after', after)
+  if (selErr) return NextResponse.json({ error: 'select_failed', detail: selErr.message }, { status: 500 })
+  if (!acct)  return NextResponse.json({ error: 'no_account' }, { status: 404 })
 
-    const r = await fetch(url.toString())
-    const j = await r.json()
-    if (!r.ok) return NextResponse.json({ error: 'fetch_media_failed', detail: j.error?.message }, { status: 500 })
+  let nextURL: URL | null = new URL(`https://graph.instagram.com/${acct.ig_user_id}/media`)
+  nextURL.searchParams.set(
+    'fields',
+    'id,media_type,media_url,thumbnail_url,caption,permalink,timestamp,children{media_type,media_url,thumbnail_url}'
+  )
+  nextURL.searchParams.set('access_token', acct.access_token)
 
-    for (const m of j.data ?? []) {
-      await supabase.from('ig_media').upsert({
-        merchant_slug: merchant,
-        ig_media_id: m.id,
-        media_type: m.media_type,
-        media_url: m.media_url,
-        thumbnail_url: m.thumbnail_url ?? null,
-        caption: m.caption ?? null,
-        permalink: m.permalink ?? null,
-        timestamp: m.timestamp ? new Date(m.timestamp).toISOString() : null
-      }, { onConflict: 'ig_media_id' })
+  let inserted = 0
+
+  while (nextURL) {
+    const r = await fetch(nextURL.toString())
+    const j: any = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: 'ig_fetch_failed', detail: j?.error?.message || r.statusText },
+        { status: 502 }
+      )
     }
 
-    after = j.paging?.cursors?.after
-  } while (after)
+    for (const m of j.data ?? []) {
+      await sb.from('ig_media').upsert(
+        {
+          ig_media_id: m.id,
+          merchant_slug: acct.merchant_slug,
+          ig_user_id: acct.ig_user_id,
+          media_type: m.media_type,
+          media_url: m.media_url,
+          thumbnail_url: m.thumbnail_url ?? null,
+          caption: m.caption ?? null,
+          permalink: m.permalink,
+          timestamp: m.timestamp ? new Date(m.timestamp).toISOString() : null,
+          children: m.children ?? null,
+        },
+        { onConflict: 'ig_media_id' }
+      )
+      inserted++
+    }
 
-  return NextResponse.json({ ok: true })
+    nextURL = j.paging?.next ? new URL(j.paging.next) : null
+  }
+
+  return NextResponse.json({ ok: true, merchant, inserted })
 }

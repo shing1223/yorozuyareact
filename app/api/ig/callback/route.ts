@@ -1,35 +1,11 @@
 // app/api/ig/callback/route.ts
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { getServerSupabase } from '@/lib/supabase-ssr'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// ✅ 以使用者 Session（JWT）操作 DB，讓 RLS 放行（記得 async + await cookies()）
-async function getServerClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
-        },
-      },
-    }
-  )
-}
-
-// state 格式：<uuid>:<merchant_slug>
+// state: <uuid>:<merchant_slug>
 function parseState(raw: string | null) {
   const [, merchant] = (raw ?? '').split(':')
   return { merchant: merchant ?? null }
@@ -42,14 +18,14 @@ export async function GET(req: Request) {
   const debug = url.searchParams.get('debug') === '1'
   const { merchant } = parseState(stateRaw)
 
-  if (!code)    return NextResponse.json({ error: 'oauth_failed', detail: 'missing code' }, { status: 400 })
+  if (!code)     return NextResponse.json({ error: 'oauth_failed', detail: 'missing code' }, { status: 400 })
   if (!merchant) return NextResponse.json({ error: 'oauth_failed', detail: 'missing merchant' }, { status: 400 })
 
   const IG_APP_ID = process.env.IG_APP_ID!
   const IG_APP_SECRET = process.env.IG_APP_SECRET!
   const IG_REDIRECT_URI = process.env.IG_REDIRECT_URI!
 
-  // 1) code → short-lived token
+  // 1) code -> short-lived token
   const r1 = await fetch('https://api.instagram.com/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -70,7 +46,7 @@ export async function GET(req: Request) {
   }
   const shortToken: string = j1.access_token
 
-  // 2) short → long-lived (60 天)
+  // 2) short -> long-lived
   const r2 = await fetch(
     `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${encodeURIComponent(
       IG_APP_SECRET
@@ -87,7 +63,7 @@ export async function GET(req: Request) {
   const tokenExpiresAt =
     j2.expires_in ? new Date(Date.now() + Number(j2.expires_in) * 1000).toISOString() : null
 
-  // 3) 取 IG 使用者
+  // 3) me
   const rMe = await fetch(
     `https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(longToken)}`
   )
@@ -99,8 +75,8 @@ export async function GET(req: Request) {
     )
   }
 
-  // 4) 寫入 DB（使用者 Session + RLS）
-  const supabase = await getServerClient() // ← 這裡也要 await
+  // 4) DB upsert（用使用者 Session + RLS）
+  const supabase = await getServerSupabase()
   const { error: upsertErr } = await supabase
     .from('ig_account')
     .upsert(
