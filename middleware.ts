@@ -1,42 +1,59 @@
 // middleware.ts
-import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (name: string) => req.cookies.get(name)?.value,
-        set: (name: string, value: string, options?: CookieOptions) => {
-          res.cookies.set(name, value, options)
-        },
-        remove: (name: string, options?: CookieOptions) => {
-          res.cookies.set(name, '', { ...options, maxAge: 0 })
-        },
-      },
-    }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
+  // 每次請求同步 session / 刷新 token（交給 helpers 寫 cookie）
+  await supabase.auth.getSession()
 
   const { pathname, searchParams } = req.nextUrl
-  const publicExact = new Set(['/', '/login', '/auth/callback'])
-  const publicPrefixes = ['/api/', '/_next', '/favicon', '/assets', '/images', '/fonts']
-  const isPublic = publicExact.has(pathname) || publicPrefixes.some(p => pathname.startsWith(p))
-  if (isPublic) return res
 
-  if (pathname.startsWith('/dashboard') && !session) {
-    const url = req.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('redirect', pathname + (searchParams.toString() ? `?${searchParams}` : ''))
-    return NextResponse.redirect(url)
+  // 放行的公開路徑
+  const isPublic =
+    pathname === '/' ||
+    pathname.startsWith('/api/public/') ||
+    pathname.startsWith('/api/ig/') ||        // IG OAuth 需要
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname === '/login'
+
+  if (isPublic) {
+    // 已登入的使用者造訪 /login → 直接導去 redirect 或 /dashboard
+    if (pathname === '/login') {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        const to = searchParams.get('redirect') || '/dashboard'
+        const url = req.nextUrl.clone()
+        url.pathname = to
+        url.search = ''
+        return NextResponse.redirect(url)
+      }
+    }
+    return res
+  }
+
+  // 需要登入的區域
+  if (pathname.startsWith('/dashboard')) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
   }
 
   return res
 }
 
-export const config = { matcher: ['/:path*'] }
+export const config = {
+  matcher: ['/:path*'],
+}
