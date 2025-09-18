@@ -1,6 +1,6 @@
-// lib/supabase-server.ts
+// 用在「伺服器端」(RSC / Route Handler)
 import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 
 export async function createSupabaseServer() {
   const cookieStore = await cookies()
@@ -9,13 +9,16 @@ export async function createSupabaseServer() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
+        get(name) {
           return cookieStore.get(name)?.value
         },
-        // RSC 端不寫 cookie（避免 Next 警告）
-        set(_n: string, _v: string, _o?: CookieOptions) {},
-        remove(_n: string, _o?: CookieOptions) {},
-      },
+        set(name, value, options) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name, options) {
+          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+        }
+      }
     }
   )
 }
