@@ -1,19 +1,30 @@
 // lib/auth.ts
-import { createSupabaseServer } from './supabaseServer'
+import { createSupabaseServer } from './supabase-server'
 
 export async function getSessionAndUser() {
-  const supabase = createSupabaseServer()
-  const { data: { session } } = await supabase.auth.getSession()
-  const user = session?.user ?? null
-  return { session, user }
+  const supabase = await createSupabaseServer() // ← 要 await
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession()
+  if (error) throw error
+  return { session, user: session?.user ?? null }
 }
 
 export async function getMyMerchants() {
-  const supabase = createSupabaseServer()
+  const supabase = await createSupabaseServer() // ← 要 await
   const { data, error } = await supabase
     .from('membership')
-    .select('merchant:merchant_id(id, name, slug), role')
+    .select(`
+      role,
+      merchant:merchant_id (
+        id,
+        name,
+        slug
+      )
+    `)
     .order('created_at', { ascending: true })
+
   if (error) throw error
-  return data
+  return data ?? []
 }
