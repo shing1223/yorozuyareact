@@ -3,6 +3,9 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 
+export const dynamic = "force-dynamic"   // ← 先不用 ISR，避免快取吃到舊資料
+// export const revalidate = 0            // 也可以這樣禁用 ISR
+
 async function getServerSupabase() {
   const jar = await cookies()
   return createServerClient(
@@ -23,21 +26,17 @@ async function getServerSupabase() {
   )
 }
 
-export const revalidate = 60
-
 export default async function Home() {
   const supabase = await getServerSupabase()
 
-  // 🔹 只撈公開商戶
   const { data: merchants, error } = await supabase
     .from("merchants")
     .select("slug, name")
     .eq("is_public", true)
     .order("created_at", { ascending: true })
 
-  if (error) {
-    console.error("Supabase error:", error.message)
-  }
+  // （可暫時保留）看得到錯誤比較好排查
+  if (error) console.error("merchants query error:", error)
 
   return (
     <main className="mx-auto max-w-4xl p-6 space-y-4">
@@ -45,6 +44,7 @@ export default async function Home() {
         <Link href="/login" className="px-3 py-1 border rounded">登入</Link>
         <Link href="/dashboard" className="px-3 py-1 border rounded">後台</Link>
       </div>
+
       <h1 className="text-3xl font-bold">Instagram 精選平台</h1>
       <p className="text-gray-600">到以下商戶頁面，查看各自公開的 IG 精選貼文牆：</p>
 
