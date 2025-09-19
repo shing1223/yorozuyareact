@@ -32,7 +32,7 @@ export default async function Home() {
 
   // 依你的實際表名/欄位調整
   const { data: merchants, error } = await supabase
-    .from('merchant')
+    .from('merchants')
     .select('id, name, slug')
     .order('created_at', { ascending: true })
 
