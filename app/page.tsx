@@ -49,8 +49,8 @@ export default async function Home() {
       <p className="text-gray-600">到以下商戶頁面，查看各自公開的 IG 精選貼文牆：</p>
 
       {!merchants?.length ? (
-  <pre className="text-xs bg-gray-50 p-3 rounded">{JSON.stringify({ merchants, error }, null, 2)}</pre>
-) : (
+        <p className="text-gray-500">目前沒有公開商戶。</p>
+      ) : (
         <ul className="list-disc pl-6 space-y-2">
           {merchants.map((m) => (
             <li key={m.slug}>
