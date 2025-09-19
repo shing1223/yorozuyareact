@@ -32,10 +32,10 @@ export default async function Home() {
 
   // 依你的實際表名/欄位調整
   const { data: merchants, error } = await supabase
-    .from('merchants')
-    .select('id, name, slug')
-    .order('created_at', { ascending: true })
-
+  .from('merchants')
+  .select('slug, name')
+  .eq('is_public', true)             // 只取公開商戶
+  .order('created_at', { ascending: true })
   if (error) {
     console.error('讀取商戶列表失敗:', error.message)
   }
@@ -52,14 +52,14 @@ export default async function Home() {
 
       {merchants?.length ? (
         <ul className="list-disc pl-6 space-y-2">
-          {merchants.map((m) => (
-            <li key={m.id}>
-              <Link className="text-blue-600 underline" href={`/${m.slug}`}>
-                {m.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
+  {merchants?.map((m) => (
+    <li key={m.slug}>
+      <Link className="text-blue-600 underline" href={`/${m.slug}`}>
+        {m.name}
+      </Link>
+    </li>
+  ))}
+</ul>
       ) : (
         <p className="text-gray-500">目前沒有商戶。</p>
       )}
