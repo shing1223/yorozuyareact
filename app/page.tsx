@@ -1,28 +1,54 @@
-// app/page.tsx
 import Link from 'next/link'
+import { cookies } from 'next/headers'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-export const revalidate = 60
+async function sb() {
+  const jar = await cookies() // ✅ 取得 cookie jar
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return jar.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          jar.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          jar.set({ name, value: '', ...options, maxAge: 0 })
+        },
+      },
+    }
+  )
+}
 
 export default async function Home() {
-  // 這裡可以改成從 DB 拉商戶列表，或直接放靜態連結
-  const merchants = [
-    { name: 'Demo 商戶', slug: 'demo' },
-  ]
+  const supabase = await sb() // ✅ 記得 await
+
+  // 先固定 merchant = 'shop1'
+  const { data: acct } = await supabase
+    .from('ig_account')
+    .select('ig_username')
+    .eq('merchant_slug', 'shop1')
+    .maybeSingle()
+
+  const uname = acct?.ig_username ?? '（尚未連結）'
 
   return (
-        <main className="mx-auto max-w-4xl p-6 space-y-4">
-      <div className="flex gap-3">
-        <Link href="/login" className="px-3 py-1 border rounded">登入</Link>
-        <Link href="/dashboard" className="px-3 py-1 border rounded">後台</Link>
-      </div>
-      <h1 className="text-3xl font-bold">Instagram 精選平台</h1>
-      <p className="text-gray-600">到以下商戶頁面，查看各自公開的 IG 精選貼文牆：</p>
-      <ul className="list-disc pl-6 space-y-2">
-        {merchants.map((m) => (
-          <li key={m.slug}>
-            <Link className="text-blue-600 underline" href={`/${m.slug}`}>{m.name}</Link>
-          </li>
-        ))}
+    <main className="max-w-4xl mx-auto p-6 space-y-6">
+      <h1 className="text-4xl font-bold">Instagram 精選平台</h1>
+
+      <p className="text-lg">
+        已連結 IG：<span className="font-semibold">@{uname}</span>
+      </p>
+
+      <ul className="list-disc pl-6">
+        <li>
+          <Link href="/shop/shop1" className="text-blue-600 underline">
+            前往商戶頁
+          </Link>
+        </li>
       </ul>
     </main>
   )
