@@ -54,7 +54,7 @@ export default async function Home() {
         <ul className="list-disc pl-6 space-y-2">
           {merchants.map((m) => (
             <li key={m.slug}>
-              <Link className="text-blue-600 underline" href={`/${m.slug}`}>
+              <Link className="text-blue-600 underline" href={`/shop/${m.slug}`}>
                 {m.name}
               </Link>
             </li>
