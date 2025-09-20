@@ -38,19 +38,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'insert_order_failed', detail: oErr.message }, { status: 400 })
   }
 
-  // ② 用帶 X-Order-Code 的 client 查回 id（這時才需要 SELECT）
+  // ② 用帶 X-Order-Code 的 client 依照 X-Order-Code 取回 id（符合你的 SELECT policy）
   const supabaseWithCode = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { 'X-Order-Code': order_code } } }        // ← 命中 orders 的 SELECT policy
+    { global: { headers: { 'X-Order-Code': order_code } } }
   )
 
+  // ✅ 用 maybeSingle + 顯式條件，避免 0 筆時拋錯
   const { data: orderOnce, error: sErr } = await supabaseWithCode
     .from('orders')
     .select('id')
-    .single()
-  if (sErr || !orderOnce?.id) {
-    return NextResponse.json({ error: 'fetch_order_failed', detail: sErr?.message ?? null }, { status: 400 })
+    .eq('order_code', order_code)   // 額外保險
+    .limit(1)
+    .maybeSingle()
+
+  if (sErr) {
+    return NextResponse.json({ error: 'fetch_order_failed', detail: sErr.message }, { status: 400 })
+  }
+  if (!orderOnce?.id) {
+    return NextResponse.json({ error: 'fetch_order_failed', detail: 'no row matched X-Order-Code' }, { status: 400 })
   }
 
   // ③ 明細（同樣用 minimal client；傳入「陣列」）
