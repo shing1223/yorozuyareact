@@ -148,38 +148,45 @@ function MediaCard({
         </form>
 
         {/* 設定價格（最小表單） */}
-        <form action="/api/dashboard/product" method="post" className="space-y-2 pt-2 border-t">
-          <input type="hidden" name="merchant" value={merchant} />
-          <input type="hidden" name="ig_media_id" value={m.ig_media_id} />
-          <input type="hidden" name="image_url" value={img} />
+<form action="/api/dashboard/product" method="post" className="space-y-2 pt-2 border-t">
+  <input type="hidden" name="merchant" value={merchant} />
+  <input type="hidden" name="ig_media_id" value={m.ig_media_id} />
+  <input type="hidden" name="image_url" value={img} />
 
-          <input
-            name="title"
-            defaultValue={suggestedTitle}
-            placeholder="商品標題"
-            className="w-full border px-2 py-1 rounded"
-          />
-          <div className="flex gap-2">
-            <input
-              name="price"
-              type="number"
-              min="0"
-              step="1"
-              defaultValue={product?.price ?? ''}
-              placeholder="價格"
-              className="w-full border px-2 py-1 rounded"
-            />
-            <input
-              name="currency"
-              defaultValue={product?.currency ?? 'TWD'}
-              className="w-24 border px-2 py-1 rounded"
-            />
-          </div>
+  <input
+    name="title"
+    defaultValue={suggestedTitle}
+    placeholder="商品標題"
+    className="w-full border px-2 py-1 rounded"
+  />
 
-          <button className="w-full px-2 py-1 rounded bg-black text-white">
-            {product?.price != null ? '更新價格' : '儲存價格'}
-          </button>
-        </form>
+  <div className="flex gap-2">
+    <input
+      name="price"
+      type="number"
+      min="0"
+      step="1"
+      defaultValue={product?.price ?? ''}
+      placeholder="價格"
+      className="w-full border px-2 py-1 rounded"
+      required
+    />
+    <select
+      name="currency"
+      defaultValue={(product?.currency ?? 'HKD') as string}
+      className="w-28 border px-2 py-1 rounded"
+      required
+    >
+      <option value="HKD">HKD</option>
+      <option value="TWD">TWD</option>
+      <option value="USD">USD</option>
+    </select>
+  </div>
+
+  <button className="w-full px-2 py-1 rounded bg-black text-white">
+    {product?.price != null ? '更新價格' : '儲存價格'}
+  </button>
+</form>
 
         {/* 已設價格顯示 */}
         {product?.price != null && (

@@ -1,8 +1,18 @@
 // app/api/dashboard/product/route.ts
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 
+const ALLOWED = new Set(['HKD', 'TWD', 'USD'])
+const normCurrency = (input: string | null | undefined) => {
+  const v = (input ?? '').toUpperCase().trim()
+  return ALLOWED.has(v) ? v : 'HKD'
+}
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+// ✅ Next 15 + @supabase/ssr@0.7：使用 getAll / setAll
 async function sb() {
   const jar = await cookies()
   return createServerClient(
@@ -10,47 +20,67 @@ async function sb() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return jar.getAll() },
-        setAll(list) { list.forEach(({ name, value, options }: any) => jar.set({ name, value, ...options })) },
+        getAll() {
+          return jar.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            jar.set({ name, value, ...options })
+          })
+        },
       },
     }
   )
 }
 
 export async function POST(req: Request) {
-  const supabase = await sb()
   const form = await req.formData()
   const merchant = String(form.get('merchant') ?? '')
   const ig_media_id = String(form.get('ig_media_id') ?? '')
   const title = String(form.get('title') ?? '')
-  const price = Number(form.get('price') ?? '0')
-  const currency = String(form.get('currency') ?? 'TWD')
   const image_url = String(form.get('image_url') ?? '')
+  const priceRaw = String(form.get('price') ?? '')
+  const currency = normCurrency(String(form.get('currency') ?? ''))
 
-  if (!merchant || !ig_media_id || !title || Number.isNaN(price)) {
+  const price = Number(priceRaw)
+  if (!merchant || !ig_media_id || !Number.isFinite(price)) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 })
   }
 
-  // 1) upsert 商品
-  const { data: prod, error: pe } = await supabase
+  const supabase = await sb()
+
+  // 1) upsert products（onConflict 需對應 DB 的唯一鍵）
+  const { data: p, error: pErr } = await supabase
     .from('products')
     .upsert(
-      [{ merchant_slug: merchant, title, price, currency, image_url }],
-      { onConflict: 'merchant_slug,title' }
+      { title, price, currency, image_url },
+      { onConflict: 'title' } // 若你改成 uq_products_title，保持這裡一致
     )
-    .select()
-    .single()
+    .select('id')
+    .maybeSingle()
 
-  if (pe) return NextResponse.json({ error: 'upsert_product_failed', detail: pe.message }, { status: 500 })
+  if (pErr || !p) {
+    return NextResponse.json(
+      { error: 'upsert_product_failed', detail: pErr?.message ?? 'no product returned' },
+      { status: 500 }
+    )
+  }
 
-  // 2) 綁定 IG 媒體 ↔ 商品
-  const { error: me } = await supabase
+  // 2) 綁定 media ↔ product（需要 unique key: merchant_slug, ig_media_id）
+  const { error: mpErr } = await supabase
     .from('media_product')
-    .upsert([{ merchant_slug: merchant, ig_media_id, product_id: prod.id }])
+    .upsert(
+      { merchant_slug: merchant, ig_media_id, product_id: p.id },
+      { onConflict: 'merchant_slug,ig_media_id' }
+    )
 
-  if (me) return NextResponse.json({ error: 'bind_failed', detail: me.message }, { status: 500 })
+  if (mpErr) {
+    return NextResponse.json({ error: 'bind_failed', detail: mpErr.message }, { status: 500 })
+  }
 
-  // 回到 dashboard
   const url = new URL(req.url)
-  return NextResponse.redirect(new URL(`/dashboard?merchant=${merchant}`, url.origin), { status: 302 })
+  return NextResponse.redirect(
+    new URL(`/dashboard?merchant=${merchant}`, url.origin),
+    { status: 302 }
+  )
 }

@@ -5,7 +5,7 @@ import AddToCartButton from "@/components/AddToCartButton"
 import type { CartItemInput } from "@/types/cart"
 
 export const dynamic = "force-dynamic"
-
+const symbol = (cur?: string) => (cur === 'HKD' ? 'HK$' : cur === 'TWD' ? 'NT$' : cur ?? '')
 async function sb() {
   const jar = await cookies()
   return createServerClient(
@@ -106,9 +106,9 @@ export default async function MediaDetail({
 
           {/* 顯示真實定價 */}
          <div className="pt-2">
-  <span className="text-2xl font-bold">
-    HK$ {price != null ? Number(price).toLocaleString() : '—'}
-  </span>
+ <span className="text-2xl font-bold">
+  {price != null ? `${symbol(currency)} ${Number(price).toLocaleString()}` : '—'}
+</span>
 </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -120,10 +120,11 @@ export default async function MediaDetail({
     image: img!,
     permalink: item.permalink,
     caption: item.caption || "",
-    price: price ?? 0,   // 已是 HKD
-    currency: 'HKD',
+    price: price ?? 0,    // 這裡會帶「乾淨的數字」
+    currency: 'HKD',      // 或用後端返回的 currency 變數
   }}
-/>            <a
+/>
+        <a
               href={item.permalink!}
               target="_blank"
               className="inline-flex items-center justify-center px-4 py-3 rounded-lg border"

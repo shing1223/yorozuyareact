@@ -9,6 +9,7 @@ import type { CartItem } from '@/types/cart'
 
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([])
+  const symbol = (cur?: string) => (cur === 'HKD' ? 'HK$' : cur === 'TWD' ? 'NT$' : cur ?? '')
 
   useEffect(() => {
     setItems(readCart().items)
@@ -50,9 +51,9 @@ export default function CartPage() {
           <section className="lg:col-span-2 space-y-4">
             {items.map((it) => {
               const unitLabel =
-                typeof it.price === 'number'
-                  ? `${(it.currency ?? 'HKD')} ${it.price.toLocaleString()}`
-                  : '—（尚未定價）'
+  typeof it.price === 'number'
+    ? `${symbol(it.currency)} ${it.price.toLocaleString()}`
+    : '—（尚未定價）'
               return (
                 <div key={`${it.merchant_slug}_${it.ig_media_id}`} className="flex gap-4 border rounded-lg p-3">
                   {/* 圖片 */}
@@ -122,11 +123,11 @@ export default function CartPage() {
             ) : (
               <div className="space-y-1">
                 {totalsByCurrency.map(({ currency, total }) => (
-                  <div key={currency} className="flex items-center justify-between">
-                    <span>小計（{currency}）</span>
-                    <span>{currency} {total.toLocaleString()}</span>
-                  </div>
-                ))}
+  <div key={currency} className="flex items-center justify-between">
+    <span>小計（{currency}）</span>
+    <span>{symbol(currency)} {total.toLocaleString()}</span>
+  </div>
+))}
               </div>
             )}
 
