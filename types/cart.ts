@@ -1,7 +1,7 @@
 // types/cart.ts
 
 // 定義通用的幣別型別（可以限制，也可以開放 string）
-export type CurrencyCode = 'TWD' | 'USD' | 'JPY' | 'EUR' | string;
+export type CurrencyCode = 'HKD' | 'TWD' | 'USD' | 'JPY' | 'EUR' | string;
 
 export type CartItem = {
   merchant_slug: string;

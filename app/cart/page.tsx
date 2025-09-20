@@ -17,10 +17,10 @@ export default function CartPage() {
   // 依幣別分組小計
   const totalsByCurrency = useMemo(() => {
     const map = new Map<string, number>()
-    for (const i of items) {
-      const cur = (i.currency as string) || 'TWD'
-      const price = typeof i.price === 'number' ? i.price : 0
-      map.set(cur, (map.get(cur) || 0) + price * i.qty)
+    for (const it of items) {
+      const cur = (it.currency as string) || 'HKD' // 預設 HKD
+      const price = typeof it.price === 'number' ? it.price : 0
+      map.set(cur, (map.get(cur) || 0) + price * it.qty)
     }
     return Array.from(map.entries()).map(([currency, total]) => ({ currency, total }))
   }, [items])
@@ -51,7 +51,7 @@ export default function CartPage() {
             {items.map((it) => {
               const unitLabel =
                 typeof it.price === 'number'
-                  ? `${(it.currency ?? 'TWD')} ${it.price.toLocaleString()}`
+                  ? `${(it.currency ?? 'HKD')} ${it.price.toLocaleString()}`
                   : '—（尚未定價）'
               return (
                 <div key={`${it.merchant_slug}_${it.ig_media_id}`} className="flex gap-4 border rounded-lg p-3">
@@ -86,7 +86,9 @@ export default function CartPage() {
                       />
                     </div>
 
-                    <div className="mt-2 text-sm text-gray-600">單價：{unitLabel}</div>
+                    <div className="mt-2 text-sm text-gray-600">
+                      單價：{unitLabel}
+                    </div>
 
                     {it.permalink && (
                       <div className="mt-2">
@@ -111,7 +113,7 @@ export default function CartPage() {
             </div>
           </section>
 
-          {/* 右側：結帳摘要（多幣別） */}
+          {/* 右側：結帳摘要（多幣別分列） */}
           <aside className="border rounded-lg p-4 h-fit space-y-3">
             <h2 className="text-lg font-semibold">訂單摘要</h2>
 
@@ -122,16 +124,14 @@ export default function CartPage() {
                 {totalsByCurrency.map(({ currency, total }) => (
                   <div key={currency} className="flex items-center justify-between">
                     <span>小計（{currency}）</span>
-                    <span>
-                      {currency} {total.toLocaleString()}
-                    </span>
+                    <span>{currency} {total.toLocaleString()}</span>
                   </div>
                 ))}
               </div>
             )}
 
             <p className="text-xs text-gray-500">
-              * 金額依各品項幣別分列。若需統一幣別，可在後台統一設定 currency。
+              * 金額依幣別分列。若要「單幣別結帳（HKD）」請在加入購物車時統一帶入 HKD 單價與幣別。
             </p>
             <button
               className="w-full px-4 py-3 rounded-lg bg-black text-white disabled:opacity-50"

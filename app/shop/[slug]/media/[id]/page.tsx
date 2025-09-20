@@ -105,16 +105,25 @@ export default async function MediaDetail({
           </div>
 
           {/* 顯示真實定價 */}
-          <div className="pt-2">
-            <span className="text-2xl font-bold">{priceLabel}</span>
-            {price == null && (
-              <p className="text-sm text-gray-500 mt-1">（尚未設定價格）</p>
-            )}
-          </div>
+         <div className="pt-2">
+  <span className="text-2xl font-bold">
+    HK$ {price != null ? Number(price).toLocaleString() : '—'}
+  </span>
+</div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <AddToCartButton item={cartItem} />
-            <a
+<AddToCartButton
+  item={{
+    merchant_slug: item.merchant_slug,
+    ig_media_id: item.ig_media_id,
+    title,
+    image: img!,
+    permalink: item.permalink,
+    caption: item.caption || "",
+    price: price ?? 0,   // 已是 HKD
+    currency: 'HKD',
+  }}
+/>            <a
               href={item.permalink!}
               target="_blank"
               className="inline-flex items-center justify-center px-4 py-3 rounded-lg border"
