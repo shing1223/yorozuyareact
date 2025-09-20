@@ -25,6 +25,7 @@ export default async function MediaDetail({
 }: { params: { slug: string; id: string } }) {
   const supabase = await sb()
 
+  // ① 取公開貼文（仍用 v_public_feed）
   const { data: item, error } = await supabase
     .from("v_public_feed")
     .select(
@@ -45,15 +46,28 @@ export default async function MediaDetail({
     )
   }
 
-  const img =
-    item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
+  // ② 取這張貼文對應的商品價格（media_product → products）
+  const { data: bind } = await supabase
+    .from("media_product")
+    .select("product:product_id(id, title, price, currency)")
+    .eq("merchant_slug", params.slug)
+    .eq("ig_media_id", params.id)
+    .maybeSingle()
 
-  // ✅ 為 map 的參數加上型別
+  const product = Array.isArray(bind?.product) ? bind?.product[0] : bind?.product || null
+  const price = product?.price ?? null
+  const currency = (product?.currency as string | null) ?? "TWD"
+  const productTitle = (product?.title as string | null) ?? null
+
+  const img = item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
+
   const title =
     (item.caption || "")
       .split("\n")
       .map((s: string) => s.trim())
-      .filter(Boolean)[0] || `@${item.merchant_slug} 的精選貼文`
+      .filter(Boolean)[0] || productTitle || `@${item.merchant_slug} 的精選貼文`
+
+  const priceLabel = price != null ? `${currency} ${Number(price).toLocaleString()}` : "—"
 
   return (
     <main className="max-w-6xl mx-auto p-6">
@@ -79,12 +93,16 @@ export default async function MediaDetail({
             {item.caption || "—"}
           </div>
 
+          {/* ✅ 顯示真實定價 */}
           <div className="pt-2">
-            <span className="text-2xl font-bold">NT$ —</span>
-            <p className="text-sm text-gray-500 mt-1">（示意）請在後台補商品定價資料</p>
+            <span className="text-2xl font-bold">{priceLabel}</span>
+            {price == null && (
+              <p className="text-sm text-gray-500 mt-1">（尚未設定價格）</p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {/* ✅ 把價格與幣別也帶入購物車 */}
             <AddToCartButton
               item={{
                 merchant_slug: item.merchant_slug,
@@ -93,6 +111,8 @@ export default async function MediaDetail({
                 image: img!,
                 permalink: item.permalink,
                 caption: item.caption || "",
+                price: price ?? undefined,
+                currency: currency ?? undefined,
               }}
             />
             <a

@@ -1,7 +1,6 @@
 // app/(dashboard)/dashboard/page.tsx
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase-server'
-
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardHome() {
@@ -9,7 +8,7 @@ export default async function DashboardHome() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login?redirect=/dashboard')
 
-  const merchant = 'shop1' // 先固定
+  const merchant = 'shop1'
 
   const { data: acct } = await supabase
     .from('ig_account')
@@ -24,15 +23,41 @@ export default async function DashboardHome() {
     .order('timestamp', { ascending: false })
     .limit(60)
 
-  // 讀取當前勾選（已發佈）清單
   const { data: sel } = await supabase
-    .from('media_selection')
-    .select('ig_media_id, is_published')
-    .eq('merchant_slug', merchant)
+  .from('media_selection')
+  .select('ig_media_id, is_published')
+  .eq('merchant_slug', merchant)
 
-  const publishedMap = new Map<string, boolean>(
-    (sel ?? []).map(s => [s.ig_media_id as string, !!s.is_published])
-  )
+// ✅ 補回 publishedMap
+const publishedMap = new Map<string, boolean>(
+  (sel ?? []).map(s => [String(s.ig_media_id), !!s.is_published])
+)
+
+// ⬇️ 取每則媒體是否已有商品與價格（left join）
+const { data: binds } = await supabase
+  .from('media_product')
+  .select('ig_media_id, product:product_id(id, title, price, currency)')
+  .eq('merchant_slug', merchant)
+
+// ✅ 統一型別：允許 null；欄位都可選
+type ProductLite = {
+  id?: string | null
+  title?: string | null
+  price?: number | null
+  currency?: string | null
+}
+
+const productMap = new Map<string, ProductLite>()
+
+;(binds ?? []).forEach((b: any) => {
+  const p = Array.isArray(b.product) ? b.product[0] : b.product
+  productMap.set(String(b.ig_media_id), {
+    id: p?.id ?? null,
+    title: p?.title ?? null,
+    price: p?.price ?? null,
+    currency: p?.currency ?? null,
+  })
+})
 
   return (
     <div className="space-y-6">
@@ -41,17 +66,13 @@ export default async function DashboardHome() {
       {!acct ? (
         <div className="space-y-3">
           <p>尚未連結 Instagram。</p>
-          <a
-            href={`/api/ig/auth?merchant=${merchant}`}
-            className="inline-flex items-center px-4 py-2 rounded bg-black text-white"
-          >
+          <a href={`/api/ig/auth?merchant=${merchant}`} className="inline-flex items-center px-4 py-2 rounded bg-black text-white">
             連結 Instagram
           </a>
         </div>
       ) : (
         <div className="space-y-3">
           <p>已連結 IG：<b>@{acct.ig_username}</b></p>
-
           <form action={`/api/ig/sync?merchant=${merchant}`} method="post">
             <input type="hidden" name="merchant" value={merchant} />
             <button className="px-3 py-1 border rounded">同步最新媒體</button>
@@ -60,20 +81,21 @@ export default async function DashboardHome() {
       )}
 
       <section className="space-y-2">
-        <h2 className="text-lg font-medium">媒體清單（勾選發佈）</h2>
+        <h2 className="text-lg font-medium">媒體清單（勾選發佈 & 設定價格）</h2>
 
         {!medias?.length ? (
           <p className="text-gray-500">尚無資料，先點「同步最新媒體」。</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {medias.map(m => (
-              <MediaCard
-                key={m.ig_media_id}
-                m={m}
-                merchant={merchant}
-                published={publishedMap.get(m.ig_media_id) ?? false}
-              />
-            ))}
+  <MediaCard
+    key={m.ig_media_id}
+    m={m}
+    merchant={merchant}
+    published={publishedMap.get(m.ig_media_id) ?? false}
+    product={productMap.get(m.ig_media_id) ?? null}
+  />
+))}
           </div>
         )}
       </section>
@@ -81,22 +103,29 @@ export default async function DashboardHome() {
   )
 }
 
+function firstLine(text?: string | null) {
+  if (!text) return ''
+  const line = text.split('\n').map(s => s.trim()).find(Boolean)
+  return line ?? ''
+}
+
 function MediaCard({
   m,
   merchant,
   published,
+  product,
 }: {
   m: any
   merchant: string
   published: boolean
+  product: { id?: string | null; title?: string | null; price?: number | null; currency?: string | null } | null
 }) {
   const img = m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : m.media_url
+  const baseTitle = firstLine(m.caption)
+  const suggestedTitle = (product?.title ?? baseTitle) || `商品：${String(m.ig_media_id).slice(-6)}`
 
   return (
-    <form action="/api/dashboard/toggle" method="post" className="border rounded overflow-hidden">
-      <input type="hidden" name="merchant" value={merchant} />
-      <input type="hidden" name="ig_media_id" value={m.ig_media_id} />
-
+    <div className="border rounded overflow-hidden">
       <div className="relative">
         {!!published && (
           <span className="absolute top-2 left-2 text-xs bg-green-600 text-white px-2 py-0.5 rounded">
@@ -109,11 +138,56 @@ function MediaCard({
       <div className="p-2 text-sm space-y-2">
         <div className="line-clamp-2">{m.caption ?? ''}</div>
 
-        {/* 若想改成直接點勾就送出，需寫 client component；這裡用按鈕切換最穩 */}
-        <button className="w-full px-2 py-1 border rounded">
-          {published ? '取消發佈' : '設定為發佈'}
-        </button>
+        {/* 切換發佈 */}
+        <form action="/api/dashboard/toggle" method="post" className="space-y-2">
+          <input type="hidden" name="merchant" value={merchant} />
+          <input type="hidden" name="ig_media_id" value={m.ig_media_id} />
+          <button className="w-full px-2 py-1 border rounded">
+            {published ? '取消發佈' : '設定為發佈'}
+          </button>
+        </form>
+
+        {/* 設定價格（最小表單） */}
+        <form action="/api/dashboard/product" method="post" className="space-y-2 pt-2 border-t">
+          <input type="hidden" name="merchant" value={merchant} />
+          <input type="hidden" name="ig_media_id" value={m.ig_media_id} />
+          <input type="hidden" name="image_url" value={img} />
+
+          <input
+            name="title"
+            defaultValue={suggestedTitle}
+            placeholder="商品標題"
+            className="w-full border px-2 py-1 rounded"
+          />
+          <div className="flex gap-2">
+            <input
+              name="price"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={product?.price ?? ''}
+              placeholder="價格"
+              className="w-full border px-2 py-1 rounded"
+            />
+            <input
+              name="currency"
+              defaultValue={product?.currency ?? 'TWD'}
+              className="w-24 border px-2 py-1 rounded"
+            />
+          </div>
+
+          <button className="w-full px-2 py-1 rounded bg-black text-white">
+            {product?.price != null ? '更新價格' : '儲存價格'}
+          </button>
+        </form>
+
+        {/* 已設價格顯示 */}
+        {product?.price != null && (
+          <div className="text-xs text-gray-600">
+            目前售價：{product.currency ?? 'TWD'} {Number(product.price).toLocaleString()}
+          </div>
+        )}
       </div>
-    </form>
+    </div>
   )
 }
