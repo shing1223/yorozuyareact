@@ -1,29 +1,28 @@
 // app/api/orders/[code]/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-export const dynamic = 'force-dynamic'
-
 export async function GET(
-  req: Request,
-  { params }: { params: { code: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ code: string }> }   // ← Next 15：params 是 Promise
 ) {
+  const { code } = await context.params             // ← 記得 await
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      // ✅ 把 X-Order-Code 放到全域 headers，配合你的 RLS policy
       global: {
-        headers: { 'X-Order-Code': params.code },
+        // 把查詢碼放到 Header，讓 RLS policy 可讀取
+        headers: { 'X-Order-Code': code },
       },
     }
   )
 
-  // ✅ 再加上顯式過濾，避免拿到不相干的訂單
+  // 讀訂單 + 明細（RLS 會用 header 放行）
   const { data, error } = await supabase
     .from('orders')
     .select('*, order_items(*)')
-    .eq('order_code', params.code)
     .single()
 
   if (error) {
