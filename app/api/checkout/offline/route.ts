@@ -39,26 +39,30 @@ export async function POST(req: Request) {
   }
 
   // ② 用帶 X-Order-Code 的 client 依照 X-Order-Code 取回 id（符合你的 SELECT policy）
-  const supabaseWithCode = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { 'X-Order-Code': order_code } } }
+  // ② 用 REST + 明確 headers 查回 id（單物件格式）
+const REST = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/rest/v1/orders`
+const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+const r = await fetch(`${REST}?select=id&order_code=eq.${encodeURIComponent(order_code)}`, {
+  method: 'GET',
+  headers: {
+    apikey,
+    Authorization: `Bearer ${apikey}`,                     // 用 anon key 即可
+    'X-Order-Code': order_code,                            // ✅ 讓 RLS policy 放行
+    Accept: 'application/vnd.pgrst.object+json'            // ✅ 要求單物件回傳（0 或 >1 會 406/409）
+  }
+})
+
+// 0 筆或 >1 筆會不是 200；統一當作查無
+if (!r.ok) {
+  const msg = await r.text().catch(() => r.statusText)
+  return NextResponse.json(
+    { error: 'fetch_order_failed', detail: msg || 'no row matched X-Order-Code' },
+    { status: 400 }
   )
+}
 
-  // ✅ 用 maybeSingle + 顯式條件，避免 0 筆時拋錯
-  const { data: orderOnce, error: sErr } = await supabaseWithCode
-    .from('orders')
-    .select('id')
-    .eq('order_code', order_code)   // 額外保險
-    .limit(1)
-    .maybeSingle()
-
-  if (sErr) {
-    return NextResponse.json({ error: 'fetch_order_failed', detail: sErr.message }, { status: 400 })
-  }
-  if (!orderOnce?.id) {
-    return NextResponse.json({ error: 'fetch_order_failed', detail: 'no row matched X-Order-Code' }, { status: 400 })
-  }
+const orderOnce: { id: string } = await r.json()
 
   // ③ 明細（同樣用 minimal client；傳入「陣列」）
   const rows = (body.items ?? []).map((it: any) => ({
