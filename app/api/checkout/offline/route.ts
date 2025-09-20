@@ -8,18 +8,17 @@ function genCode(len = 6) {
 }
 
 export async function POST(req: Request) {
-  // A) 這個 client 用來「插入」，強制 minimal 回應（避免 SELECT RLS）
+  // A) 專職「插入」的 client：用 Prefer 最小回傳，避免觸發 SELECT RLS
   const supabaseMinimal = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Prefer: 'return=minimal' } } }          // ← 只回 201 無資料
+    { global: { headers: { Prefer: 'return=minimal' } } }
   )
 
-  // B) 這個 client 用來「查詢」，帶 X-Order-Code 以符合你的 SELECT policy
   const body = await req.json()
   const order_code = genCode()
 
-  // ① 建立主檔（**不要** .select()，也**不要**傳 returning）
+  // ① 建立主檔（不要 .select / 不要 returning）
   const { error: oErr } = await supabaseMinimal
     .from('orders')
     .insert({
@@ -34,53 +33,70 @@ export async function POST(req: Request) {
       currency_totals: {},
       merchant_totals: {},
     })
+
   if (oErr) {
     return NextResponse.json({ error: 'insert_order_failed', detail: oErr.message }, { status: 400 })
   }
 
-  // ② 用帶 X-Order-Code 的 client 依照 X-Order-Code 取回 id（符合你的 SELECT policy）
-  // ② 用 REST + 明確 headers 查回 id（單物件格式）
-const REST = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/rest/v1/orders`
-const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  // ② 用 REST 依 RLS header 取回 id（回傳陣列自己判斷長度）
+  const REST = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/rest/v1/orders`
+  const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const r = await fetch(`${REST}?select=id&order_code=eq.${encodeURIComponent(order_code)}`, {
-  method: 'GET',
-  headers: {
-    apikey,
-    Authorization: `Bearer ${apikey}`,                     // 用 anon key 即可
-    'X-Order-Code': order_code,                            // ✅ 讓 RLS policy 放行
-    Accept: 'application/vnd.pgrst.object+json'            // ✅ 要求單物件回傳（0 或 >1 會 406/409）
+  const r = await fetch(`${REST}?select=id&limit=1`, {
+    method: 'GET',
+    headers: {
+      apikey,
+      Authorization: `Bearer ${apikey}`,
+      'X-Order-Code': order_code, // RLS 用這個放行並過濾
+      Accept: 'application/json',
+    },
+  })
+
+  if (!r.ok) {
+    const msg = await r.text().catch(() => r.statusText)
+    return NextResponse.json({ error: 'fetch_order_failed', detail: msg || 'fetch not ok' }, { status: 400 })
   }
-})
 
-// 0 筆或 >1 筆會不是 200；統一當作查無
-if (!r.ok) {
-  const msg = await r.text().catch(() => r.statusText)
-  return NextResponse.json(
-    { error: 'fetch_order_failed', detail: msg || 'no row matched X-Order-Code' },
-    { status: 400 }
-  )
-}
+  const found: Array<{ id: string }> = await r.json()
+  if (!found.length) {
+    return NextResponse.json({ error: 'fetch_order_failed', detail: 'no row matched X-Order-Code' }, { status: 400 })
+  }
+  const orderOnce = found[0]
 
-const orderOnce: { id: string } = await r.json()
-
-  // ③ 明細（同樣用 minimal client；傳入「陣列」）
-  const rows = (body.items ?? []).map((it: any) => ({
+  // ③ 明細（同樣 minimal；注意變數名稱不要跟上面的 rows 打架）
+  const itemRows: Array<{
+    order_id: string
+    merchant_slug: string
+    ig_media_id: string
+    title: string
+    image: string
+    permalink: string | null
+    caption: string | null
+    price: number
+    currency: string
+    qty: number
+  }> = (body.items ?? []).map((it: any) => ({
     order_id: orderOnce.id,
-    merchant_slug: it.merchant_slug,
-    ig_media_id: it.ig_media_id,
-    title: it.title,
-    image: it.image,
-    permalink: it.permalink ?? null,
-    caption: it.caption ?? null,
+    merchant_slug: String(it.merchant_slug),
+    ig_media_id: String(it.ig_media_id),
+    title: String(it.title),
+    image: String(it.image),
+    permalink: it.permalink ? String(it.permalink) : null,
+    caption: it.caption ? String(it.caption) : null,
     price: typeof it.price === 'number' ? it.price : 0,
     currency: String(it.currency ?? 'HKD').toUpperCase(),
-    qty: it.qty ?? 1,
-  })) as any[]                                                         // ← 明確是陣列，對應 insert 的 overload 2
+    qty: Number(it.qty ?? 1),
+  }))
+
+  if (!itemRows.length) {
+    // 沒有明細也算成功，直接回傳訂單碼
+    return NextResponse.json({ ok: true, order_code })
+  }
 
   const { error: iErr } = await supabaseMinimal
     .from('order_items')
-    .insert(rows)
+    .insert(itemRows)
+
   if (iErr) {
     return NextResponse.json({ error: 'insert_items_failed', detail: iErr.message }, { status: 400 })
   }
