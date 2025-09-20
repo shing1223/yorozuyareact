@@ -51,13 +51,13 @@ export async function POST(req: Request) {
 
   // 1) upsert products（onConflict 需對應 DB 的唯一鍵）
   const { data: p, error: pErr } = await supabase
-    .from('products')
-    .upsert(
-      { title, price, currency, image_url },
-      { onConflict: 'title' } // 若你改成 uq_products_title，保持這裡一致
-    )
-    .select('id')
-    .maybeSingle()
+  .from('products')
+  .upsert(
+    { title, price, currency, image_url },
+    { onConflict: 'title,image_url' }          // 👈 改成複合鍵
+  )
+  .select('id')
+  .maybeSingle()
 
   if (pErr || !p) {
     return NextResponse.json(
@@ -69,10 +69,10 @@ export async function POST(req: Request) {
   // 2) 綁定 media ↔ product（需要 unique key: merchant_slug, ig_media_id）
   const { error: mpErr } = await supabase
     .from('media_product')
-    .upsert(
-      { merchant_slug: merchant, ig_media_id, product_id: p.id },
-      { onConflict: 'merchant_slug,ig_media_id' }
-    )
+  .upsert(
+    { merchant_slug: merchant, ig_media_id, product_id: p.id },
+    { onConflict: 'merchant_slug,ig_media_id' }
+  )
 
   if (mpErr) {
     return NextResponse.json({ error: 'bind_failed', detail: mpErr.message }, { status: 500 })
