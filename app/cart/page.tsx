@@ -1,3 +1,4 @@
+// app/cart/page.tsx
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -13,14 +14,16 @@ export default function CartPage() {
     setItems(readCart().items)
   }, [])
 
-  const subtotal = useMemo(
-    () =>
-      items.reduce((sum, i) => {
-        const price = typeof i.price === 'number' ? i.price : 0
-        return sum + price * i.qty
-      }, 0),
-    [items]
-  )
+  // 依幣別分組小計
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const i of items) {
+      const cur = (i.currency as string) || 'TWD'
+      const price = typeof i.price === 'number' ? i.price : 0
+      map.set(cur, (map.get(cur) || 0) + price * i.qty)
+    }
+    return Array.from(map.entries()).map(([currency, total]) => ({ currency, total }))
+  }, [items])
 
   function onQtyChange(it: CartItem, v: number) {
     const next = updateQty(it.merchant_slug, it.ig_media_id, v).items
@@ -45,54 +48,57 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 左側：清單 */}
           <section className="lg:col-span-2 space-y-4">
-            {items.map(it => (
-              <div key={`${it.merchant_slug}_${it.ig_media_id}`} className="flex gap-4 border rounded-lg p-3">
-                {/* 圖片 */}
-                <div className="relative w-28 h-28 shrink-0 rounded overflow-hidden bg-gray-100">
-                  {/* 用 <img> 也可；這裡示範 next/image（若遠端需在 next.config 設定 images.domains） */}
-                  <Image src={it.image} alt={it.title} fill className="object-cover" />
-                </div>
+            {items.map((it) => {
+              const unitLabel =
+                typeof it.price === 'number'
+                  ? `${(it.currency ?? 'TWD')} ${it.price.toLocaleString()}`
+                  : '—（尚未定價）'
+              return (
+                <div key={`${it.merchant_slug}_${it.ig_media_id}`} className="flex gap-4 border rounded-lg p-3">
+                  {/* 圖片 */}
+                  <div className="relative w-28 h-28 shrink-0 rounded overflow-hidden bg-gray-100">
+                    <Image src={it.image} alt={it.title} fill className="object-cover" />
+                  </div>
 
-                {/* 資訊 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="truncate">
-                      <h3 className="font-medium truncate">{it.title}</h3>
-                      <div className="text-sm text-gray-500 truncate">@{it.merchant_slug}</div>
+                  {/* 資訊 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="truncate">
+                        <h3 className="font-medium truncate">{it.title}</h3>
+                        <div className="text-sm text-gray-500 truncate">@{it.merchant_slug}</div>
+                      </div>
+                      <button
+                        className="text-sm text-gray-500 hover:text-red-600"
+                        onClick={() => onRemove(it)}
+                      >
+                        移除
+                      </button>
                     </div>
-                    <button
-                      className="text-sm text-gray-500 hover:text-red-600"
-                      onClick={() => onRemove(it)}
-                    >
-                      移除
-                    </button>
-                  </div>
 
-                  <div className="mt-2 flex items-center gap-3">
-                    <label className="text-sm text-gray-600">數量</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={it.qty}
-                      onChange={e => onQtyChange(it, Number(e.target.value || 1))}
-                      className="w-20 rounded border px-2 py-1"
-                    />
-                  </div>
-
-                  <div className="mt-2 text-sm text-gray-600">
-                    單價：{typeof it.price === 'number' ? `NT$ ${it.price}` : '—（尚未定價）'}
-                  </div>
-
-                  {it.permalink && (
-                    <div className="mt-2">
-                      <a href={it.permalink} target="_blank" className="text-sm text-blue-600 underline">
-                        於 Instagram 開啟貼文
-                      </a>
+                    <div className="mt-2 flex items-center gap-3">
+                      <label className="text-sm text-gray-600">數量</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={it.qty}
+                        onChange={(e) => onQtyChange(it, Number(e.target.value || 1))}
+                        className="w-20 rounded border px-2 py-1"
+                      />
                     </div>
-                  )}
+
+                    <div className="mt-2 text-sm text-gray-600">單價：{unitLabel}</div>
+
+                    {it.permalink && (
+                      <div className="mt-2">
+                        <a href={it.permalink} target="_blank" className="text-sm text-blue-600 underline">
+                          於 Instagram 開啟貼文
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             <div className="flex items-center justify-between">
               <Link href="/" className="text-blue-600 underline">← 繼續逛逛</Link>
@@ -105,15 +111,27 @@ export default function CartPage() {
             </div>
           </section>
 
-          {/* 右側：結帳摘要 */}
+          {/* 右側：結帳摘要（多幣別） */}
           <aside className="border rounded-lg p-4 h-fit space-y-3">
             <h2 className="text-lg font-semibold">訂單摘要</h2>
-            <div className="flex items-center justify-between">
-              <span>小計</span>
-              <span>{subtotal ? `NT$ ${subtotal.toLocaleString()}` : '—'}</span>
-            </div>
+
+            {!totalsByCurrency.length ? (
+              <div className="text-sm text-gray-500">—</div>
+            ) : (
+              <div className="space-y-1">
+                {totalsByCurrency.map(({ currency, total }) => (
+                  <div key={currency} className="flex items-center justify-between">
+                    <span>小計（{currency}）</span>
+                    <span>
+                      {currency} {total.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <p className="text-xs text-gray-500">
-              * 目前尚未接後端商品定價，金額僅示意。請於後台為貼文建立商品與定價後再計算。
+              * 金額依各品項幣別分列。若需統一幣別，可在後台統一設定 currency。
             </p>
             <button
               className="w-full px-4 py-3 rounded-lg bg-black text-white disabled:opacity-50"
