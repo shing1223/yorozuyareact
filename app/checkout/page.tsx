@@ -1,98 +1,153 @@
+// app/checkout/page.tsx
 'use client'
-import { useEffect, useState } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
 import { readCart, clearCart } from '@/lib/cart-storage'
+import type { CartItem } from '@/types/cart'
+import Link from 'next/link'
 
 export default function CheckoutPage() {
-  const [cart, setCart] = useState(readCart())
-  const [submitting, setSubmitting] = useState(false)
-  const [method, setMethod] = useState<'card_platform'|'offline'>('card_platform')
+  const [items, setItems] = useState<CartItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [orderCode, setOrderCode] = useState<string | null>(null)
 
-  useEffect(() => setCart(readCart()), [])
+  useEffect(() => {
+    setItems(readCart().items)
+  }, [])
+
+  const totals = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const it of items) {
+      const cur = (it.currency || 'HKD').toUpperCase()
+      const line = (typeof it.price === 'number' ? it.price : 0) * it.qty
+      map.set(cur, (map.get(cur) || 0) + line)
+    }
+    return Array.from(map.entries()) // [ [currency, total], ... ]
+  }, [items])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setSubmitting(true)
-    try {
-      const fd = new FormData(e.currentTarget)
-      fd.append('cart', JSON.stringify(cart))         // 把購物車一併送到後端
-      fd.append('payment_method', method)
+    if (!items.length || loading) return
+    const fd = new FormData(e.currentTarget)
+    const payload = {
+      customer: {
+        name: String(fd.get('name') || ''),
+        email: String(fd.get('email') || ''),
+        phone: String(fd.get('phone') || ''),
+      },
+      shipping: {
+        country: String(fd.get('country') || ''),
+        city: String(fd.get('city') || ''),
+        address: String(fd.get('address') || ''),
+        postal_code: String(fd.get('postal_code') || ''),
+      },
+      note: String(fd.get('note') || ''),
+      items,
+    }
 
-      const r = await fetch('/api/checkout', { method:'POST', body: fd })
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}))
-        alert(j.detail || '下單失敗，請稍後再試')
-        return
-      }
+    setLoading(true)
+    try {
+      const r = await fetch('/api/checkout/offline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
       const j = await r.json()
-      // 若平台代收，後端可回傳 payment_url；離線付款就回傳 order_id
-      if (j.payment_url) {
-        window.location.href = j.payment_url
-      } else {
-        clearCart()
-        window.location.href = `/orders/${j.order_id}`  // 訂單完成頁
-      }
+      if (!r.ok) throw new Error(j?.detail || r.statusText)
+      setOrderCode(j.order_code)
+      clearCart()
+      setItems([])
+    } catch (err: any) {
+      alert(`提交失敗：${err.message || err}`)
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
   }
 
+  if (orderCode) {
+    return (
+      <main className="max-w-4xl mx-auto p-6 space-y-4">
+        <h1 className="text-3xl font-bold">訂單已送出</h1>
+        <p>我們已收到你的訂單，請留意商戶聯繫（線下支付）。</p>
+        <p>你的訂單編號：<b>{orderCode}</b></p>
+        <Link href="/" className="text-blue-600 underline">回首頁</Link>
+      </main>
+    )
+  }
+
   return (
-    <main className="max-w-5xl mx-auto p-6 grid lg:grid-cols-3 gap-6">
-      <form onSubmit={onSubmit} className="lg:col-span-2 space-y-6">
-        {/* 顧客資料 */}
-        <section className="border rounded p-4 space-y-3">
-          <h2 className="font-semibold">顧客資料</h2>
-          <input name="customer_name" placeholder="姓名" required className="w-full border p-2 rounded" />
-          <input name="customer_email" type="email" placeholder="Email" required className="w-full border p-2 rounded" />
-          <input name="customer_phone" placeholder="電話" className="w-full border p-2 rounded" />
-        </section>
+    <main className="max-w-5xl mx-auto p-6 space-y-6">
+      <h1 className="text-3xl font-bold">結帳</h1>
 
-        {/* 送貨資料 */}
-        <section className="border rounded p-4 space-y-3">
-          <h2 className="font-semibold">送貨資料</h2>
-          <input name="ship_name" placeholder="收件人" required className="w-full border p-2 rounded" />
-          <input name="ship_phone" placeholder="收件電話" className="w-full border p-2 rounded" />
-          <div className="grid grid-cols-2 gap-3">
-            <input name="ship_country" placeholder="國家/地區" className="border p-2 rounded" />
-            <input name="ship_city" placeholder="城市" className="border p-2 rounded" />
-          </div>
-          <input name="ship_address" placeholder="地址" required className="w-full border p-2 rounded" />
-          <input name="ship_zip" placeholder="郵遞區號" className="w-full border p-2 rounded" />
-          <select name="ship_method" className="border p-2 rounded">
-            <option value="standard">標準宅配</option>
-            <option value="pickup">門市自取</option>
-          </select>
-        </section>
+      {!items.length ? (
+        <div className="space-y-2">
+          <p>購物車是空的。</p>
+          <Link href="/" className="text-blue-600 underline">回首頁</Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 左：表單 */}
+          <section className="lg:col-span-2 space-y-6">
+            <form onSubmit={onSubmit} className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold mb-2">顧客資料</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input name="name" placeholder="姓名 *" required className="border rounded px-3 py-2" />
+                  <input name="email" placeholder="Email *" type="email" required className="border rounded px-3 py-2" />
+                  <input name="phone" placeholder="聯絡電話 *" required className="border rounded px-3 py-2 md:col-span-2" />
+                </div>
+              </div>
 
-        {/* 備註 */}
-        <section className="border rounded p-4 space-y-3">
-          <h2 className="font-semibold">備註</h2>
-          <textarea name="notes" rows={4} className="w-full border p-2 rounded" />
-        </section>
+              <div>
+                <h2 className="text-lg font-semibold mb-2">送貨資料</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input name="country" placeholder="國家/地區 *" required className="border rounded px-3 py-2" />
+                  <input name="city" placeholder="城市 *" required className="border rounded px-3 py-2" />
+                  <input name="address" placeholder="地址 *" required className="border rounded px-3 py-2 md:col-span-2" />
+                  <input name="postal_code" placeholder="郵遞區號" className="border rounded px-3 py-2" />
+                </div>
+              </div>
 
-        {/* 付款 */}
-        <section className="border rounded p-4 space-y-3">
-          <h2 className="font-semibold">付款方式</h2>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="pm" checked={method==='card_platform'} onChange={()=>setMethod('card_platform')} />
-            平台代收（信用卡）
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="pm" checked={method==='offline'} onChange={()=>setMethod('offline')} />
-            線下付款（匯款/轉帳/其他）
-          </label>
-          <button disabled={submitting} className="px-4 py-2 rounded bg-black text-white">
-            {submitting ? '建立訂單中…' : '確認下單'}
-          </button>
-        </section>
-      </form>
+              <div>
+                <h2 className="text-lg font-semibold mb-2">備註</h2>
+                <textarea name="note" placeholder="有什麼想補充的…" rows={3} className="w-full border rounded px-3 py-2" />
+              </div>
 
-      {/* 訂單摘要 */}
-      <aside className="border rounded p-4 h-fit space-y-3">
-        <h2 className="font-semibold">訂單摘要</h2>
-        {/* 你可重用購物車 totalsByCurrency 的計算 */}
-        {/* …顯示品項、金額… */}
-      </aside>
+              <div>
+                <h2 className="text-lg font-semibold mb-2">付款方式</h2>
+                <div className="p-3 border rounded bg-gray-50">
+                  <p>線下支付（OFFLINE）</p>
+                  <p className="text-sm text-gray-500">送出訂單後，由商戶與你聯繫並提供付款方式；完成付款後安排出貨。</p>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full md:w-auto px-5 py-3 rounded bg-black text-white disabled:opacity-50"
+              >
+                {loading ? '送出中…' : '送出訂單'}
+              </button>
+            </form>
+          </section>
+
+          {/* 右：摘要 */}
+          <aside className="border rounded p-4 h-fit space-y-3">
+            <h2 className="text-lg font-semibold">訂單摘要</h2>
+            <div className="space-y-1">
+              {totals.map(([cur, sum]) => (
+                <div key={cur} className="flex items-center justify-between">
+                  <span>小計（{cur}）</span>
+                  <span>{cur} {sum.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 text-sm text-gray-500">
+              * 本訂單為線下支付；多商戶與多幣別已分列金額。
+            </div>
+          </aside>
+        </div>
+      )}
     </main>
   )
 }

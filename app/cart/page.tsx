@@ -134,10 +134,7 @@ export default function CartPage() {
             <p className="text-xs text-gray-500">
               * 金額依幣別分列。若要「單幣別結帳（HKD）」請在加入購物車時統一帶入 HKD 單價與幣別。
             </p>
-           <Link
-  href="/checkout"
-  className="block w-full text-center px-4 py-3 rounded-lg bg-black text-white disabled:opacity-50"
->
+           <Link href="/checkout" className="block w-full text-center px-4 py-3 rounded-lg bg-black text-white">
   前往結帳
 </Link>
           </aside>
