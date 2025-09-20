@@ -37,33 +37,38 @@ export async function POST(req: Request) {
     )
   }
 
-  // 2) 用 REST + header 取回剛剛那筆的 id（符合你的 SELECT by code policy）
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/orders?select=id&order_code=eq.${encodeURIComponent(order_code)}&limit=1`,
-    {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        Accept: 'application/vnd.pgrst.object+json', // 直接拿單物件
-        'X-Order-Code': order_code,
-      },
-      cache: 'no-store',
-    }
+  // 2) 用 REST + header 取回剛剛那筆的 id（讓 RLS 依 X-Order-Code 放行）
+const restUrl = `${SUPABASE_URL}/rest/v1/orders?select=id&order=created_at.desc&limit=1`
+
+const res = await fetch(restUrl, {
+  method: 'GET',
+  headers: {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    'X-Order-Code': order_code,  // 讓 RLS 的「orders select by code」生效
+    Accept: 'application/json',  // ← 拿陣列，避免 PGRST116
+  },
+  cache: 'no-store',
+})
+
+if (!res.ok) {
+  const detail = await res.text().catch(() => '')
+  return NextResponse.json(
+    { error: 'fetch_order_failed', detail: detail || res.statusText },
+    { status: 400 }
   )
+}
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    return NextResponse.json(
-      { error: 'fetch_order_failed', detail: detail || res.statusText },
-      { status: 400 }
-    )
-  }
+const arr: Array<{ id: string }> = await res.json()
+const orderOnce = Array.isArray(arr) ? arr[0] : undefined
 
-  const orderOnce: { id: string } = await res.json()
-  if (!orderOnce?.id) {
-    return NextResponse.json({ error: 'fetch_order_failed' }, { status: 400 })
-  }
+if (!orderOnce?.id) {
+  // 若還是 0 筆，通常是 header 沒帶到或 RLS 尚未生效（需 reload schema）
+  return NextResponse.json(
+    { error: 'fetch_order_failed', detail: 'no row matched X-Order-Code' },
+    { status: 400 }
+  )
+}
 
   // 3) 建立明細（同樣不要 .select()）
   const rows = (body.items ?? []).map((it: any) => ({
