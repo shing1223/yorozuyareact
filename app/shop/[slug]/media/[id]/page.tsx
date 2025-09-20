@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import AddToCartButton from "@/components/AddToCartButton"
+import type { CartItemInput } from "@/types/cart"
 
 export const dynamic = "force-dynamic"
 
@@ -25,7 +26,7 @@ export default async function MediaDetail({
 }: { params: { slug: string; id: string } }) {
   const supabase = await sb()
 
-  // ① 取公開貼文（仍用 v_public_feed）
+  // ① 取公開貼文
   const { data: item, error } = await supabase
     .from("v_public_feed")
     .select(
@@ -46,7 +47,7 @@ export default async function MediaDetail({
     )
   }
 
-  // ② 取這張貼文對應的商品價格（media_product → products）
+  // ② 取這張貼文對應的定價（media_product → products）
   const { data: bind } = await supabase
     .from("media_product")
     .select("product:product_id(id, title, price, currency)")
@@ -59,8 +60,7 @@ export default async function MediaDetail({
   const currency = (product?.currency as string | null) ?? "TWD"
   const productTitle = (product?.title as string | null) ?? null
 
-  const img = item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
-
+  const img = item.media_type === "VIDEO" ? (item.thumbnail_url ?? item.media_url) : item.media_url
   const title =
     (item.caption || "")
       .split("\n")
@@ -68,6 +68,17 @@ export default async function MediaDetail({
       .filter(Boolean)[0] || productTitle || `@${item.merchant_slug} 的精選貼文`
 
   const priceLabel = price != null ? `${currency} ${Number(price).toLocaleString()}` : "—"
+
+  const cartItem: CartItemInput = {
+    merchant_slug: item.merchant_slug,
+    ig_media_id: item.ig_media_id,
+    title,
+    image: img!,
+    permalink: item.permalink,
+    caption: item.caption || "",
+    price: price ?? undefined,
+    currency: currency ?? undefined,
+  }
 
   return (
     <main className="max-w-6xl mx-auto p-6">
@@ -93,7 +104,7 @@ export default async function MediaDetail({
             {item.caption || "—"}
           </div>
 
-          {/* ✅ 顯示真實定價 */}
+          {/* 顯示真實定價 */}
           <div className="pt-2">
             <span className="text-2xl font-bold">{priceLabel}</span>
             {price == null && (
@@ -102,19 +113,7 @@ export default async function MediaDetail({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            {/* ✅ 把價格與幣別也帶入購物車 */}
-            <AddToCartButton
-              item={{
-                merchant_slug: item.merchant_slug,
-                ig_media_id: item.ig_media_id,
-                title,
-                image: img!,
-                permalink: item.permalink,
-                caption: item.caption || "",
-                price: price ?? undefined,
-                currency: currency ?? undefined,
-              }}
-            />
+            <AddToCartButton item={cartItem} />
             <a
               href={item.permalink!}
               target="_blank"
