@@ -1,5 +1,5 @@
 // app/(public)/shop/[slug]/page.tsx（或你的檔案路徑）
-
+import Link from "next/link";
 import { cookies } from 'next/headers'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
@@ -43,21 +43,19 @@ export default async function ShopPage({ params }: { params: { slug: string } })
         <p className="text-gray-500">尚無公開貼文。</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {data.map((m) => {
-            const img =
-              m.media_type === 'VIDEO' ? (m.thumbnail_url ?? m.media_url) : m.media_url
-            return (
-              <a
-                key={m.ig_media_id}
-                href={m.permalink}
-                target="_blank"
-                className="block border rounded overflow-hidden"
-              >
-                <img src={img!} alt="" className="w-full aspect-square object-cover" />
-                <div className="p-2 text-sm line-clamp-2">{m.caption}</div>
-              </a>
-            )
-          })}
+         {data.map((m) => {
+  const img = m.media_type === 'VIDEO' ? (m.thumbnail_url ?? m.media_url) : m.media_url
+  return (
+    <Link
+      key={m.ig_media_id}
+      href={`/shop/${slug}/${m.ig_media_id}`}
+      className="block border rounded overflow-hidden hover:shadow-sm transition"
+    >
+      <img src={img!} alt="" className="w-full aspect-square object-cover" />
+      <div className="p-2 text-sm line-clamp-2">{m.caption}</div>
+    </Link>
+  )
+})}
         </div>
       )}
     </main>
