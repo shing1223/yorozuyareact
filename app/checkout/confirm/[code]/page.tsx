@@ -11,21 +11,16 @@ async function sbWithCode(code: string) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      // ✅ Next 15：用 getAll / setAll
       cookies: {
         getAll() {
           return jar.getAll()
         },
         setAll(toSet) {
-          toSet.forEach(({ name, value, options }) =>
-            jar.set({ name, value, ...options })
-          )
+          toSet.forEach(({ name, value, options }) => jar.set({ name, value, ...options }))
         },
       },
-      // ✅ 在 global.headers 帶入查詢碼，符合你的 RLS Policy
-      global: {
-        headers: { 'X-Order-Code': code },
-      },
+      // 讓 PostgREST 收到 X-Order-Code（RLS 讀取用）
+      global: { headers: { 'X-Order-Code': code } },
     }
   )
 }
@@ -33,11 +28,11 @@ async function sbWithCode(code: string) {
 export default async function ConfirmPage({ params }: { params: { code: string } }) {
   const supabase = await sbWithCode(params.code)
 
-  // 先拿主檔（RLS 會用 X-Order-Code 放行）
+  // 讀主檔（用 .maybeSingle() 保險：0 或 1 筆都不會 throw）
   const { data: order, error: orderErr } = await supabase
     .from('orders')
     .select('*')
-    .single()
+    .maybeSingle()
 
   if (orderErr || !order) {
     return (
@@ -49,8 +44,7 @@ export default async function ConfirmPage({ params }: { params: { code: string }
     )
   }
 
-  // 再拿明細（可加上 order_id 過濾，更精準）
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from('order_items')
     .select('*')
     .eq('order_id', order.id)
@@ -82,7 +76,9 @@ export default async function ConfirmPage({ params }: { params: { code: string }
 
       <section className="space-y-2">
         <h2 className="font-semibold">訂單項目</h2>
-        {!items?.length ? (
+        {itemsErr ? (
+          <p className="text-red-600 text-sm">讀取明細失敗：{itemsErr.message}</p>
+        ) : !items?.length ? (
           <p className="text-gray-500">—</p>
         ) : (
           <div className="divide-y border rounded">
