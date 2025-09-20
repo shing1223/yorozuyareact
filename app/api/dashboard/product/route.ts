@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
 const ALLOWED = new Set(['HKD', 'TWD', 'USD'])
-const normCurrency = (input: string | null | undefined) => {
+function normCurrency(input?: string | null) {
   const v = (input ?? '').toUpperCase().trim()
   return ALLOWED.has(v) ? v : 'HKD'
 }
@@ -12,7 +12,7 @@ const normCurrency = (input: string | null | undefined) => {
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// ✅ Next 15 + @supabase/ssr@0.7：使用 getAll / setAll
+// ✅ 正確的 cookies 介面（getAll / setAll）
 async function sb() {
   const jar = await cookies()
   return createServerClient(
@@ -43,44 +43,48 @@ export async function POST(req: Request) {
   const currency = normCurrency(String(form.get('currency') ?? ''))
 
   const price = Number(priceRaw)
-  if (!merchant || !ig_media_id || !Number.isFinite(price)) {
+  if (!merchant || !ig_media_id || !title || !isFinite(price)) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 })
   }
 
   const supabase = await sb()
 
-  // 1) upsert products（onConflict 需對應 DB 的唯一鍵）
+  // 1) upsert products（需有唯一鍵：merchant_slug + title）
+  // 如果你還沒建唯一索引，請先執行：
+  // create unique index if not exists ux_products_merchant_title on public.products(merchant_slug, title);
   const { data: p, error: pErr } = await supabase
-  .from('products')
-  .upsert(
-    { title, price, currency, image_url },
-    { onConflict: 'title,image_url' }          // 👈 改成複合鍵
-  )
-  .select('id')
-  .maybeSingle()
+    .from('products')
+    .upsert(
+      {
+        merchant_slug: merchant,   // RLS/NOT NULL 需要
+        title,
+        price,
+        currency,                  // 若是 enum，值需為 'HKD' | 'TWD' | 'USD'
+        image_url,
+      },
+      { onConflict: 'merchant_slug,title' }
+    )
+    .select('id')
+    .maybeSingle()
 
   if (pErr || !p) {
-    return NextResponse.json(
-      { error: 'upsert_product_failed', detail: pErr?.message ?? 'no product returned' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'upsert_product_failed', detail: pErr?.message }, { status: 500 })
   }
 
-  // 2) 綁定 media ↔ product（需要 unique key: merchant_slug, ig_media_id）
+  // 2) 綁定 media ↔ product（需有唯一鍵：merchant_slug + ig_media_id）
+  // 若尚未建立，請先執行：
+  // create unique index if not exists ux_media_product_merchant_media on public.media_product(merchant_slug, ig_media_id);
   const { error: mpErr } = await supabase
     .from('media_product')
-  .upsert(
-    { merchant_slug: merchant, ig_media_id, product_id: p.id },
-    { onConflict: 'merchant_slug,ig_media_id' }
-  )
+    .upsert(
+      { merchant_slug: merchant, ig_media_id, product_id: p.id },
+      { onConflict: 'merchant_slug,ig_media_id' }
+    )
 
   if (mpErr) {
     return NextResponse.json({ error: 'bind_failed', detail: mpErr.message }, { status: 500 })
   }
 
   const url = new URL(req.url)
-  return NextResponse.redirect(
-    new URL(`/dashboard?merchant=${merchant}`, url.origin),
-    { status: 302 }
-  )
+  return NextResponse.redirect(new URL(`/dashboard?merchant=${merchant}`, url.origin), { status: 302 })
 }
