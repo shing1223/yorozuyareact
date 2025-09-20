@@ -1,129 +1,172 @@
-// app/(dashboard)/dashboard/orders/[id]/page.tsx
-import Link from 'next/link'
+// app/(dashboard)/dashboard/orders/page.tsx
 import { redirect } from 'next/navigation'
-import { createSupabaseServer } from '@/lib/supabase-server'
+import { cookies } from 'next/headers'
+import Link from 'next/link'
+import { createServerClient } from '@supabase/ssr'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OrderDetailPage({ params, searchParams }:{
-  params: { id: string },
-  searchParams?: { merchant?: string }
+async function sbWithCode(code?: string) {
+  const jar = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return jar.getAll() },
+        setAll(toSet) {
+          toSet.forEach(({ name, value, options }) => jar.set({ name, value, ...options }))
+        },
+      },
+      ...(code ? { global: { headers: { 'X-Order-Code': code } } } : {}),
+    }
+  )
+}
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams?: { code?: string }
 }) {
-  const sb = await createSupabaseServer()
-  const { data: { session } } = await sb.auth.getSession()
-  if (!session) redirect(`/login?redirect=/dashboard/orders/${params.id}`)
+  const code = (searchParams?.code || '').trim()
 
-  const merchant = (searchParams?.merchant ?? 'shop1')
+  // 需要登入
+  const supabaseBase = await sbWithCode()
+  const { data: { session } } = await supabaseBase.auth.getSession()
+  if (!session) redirect('/login?redirect=/dashboard/orders')
 
-  // 先抓訂單主檔（RLS 會檢查是否含你商戶的項目）
-  const { data: order, error: oErr } = await sb
-    .from('orders')
-    .select('*')
-    .eq('id', params.id)
-    .maybeSingle()
-
-  if (oErr || !order) {
+  // 沒有 code -> 顯示查詢表單
+  if (!code) {
     return (
-      <main className="p-6 space-y-2">
-        <Link href="/dashboard/orders" className="text-blue-600 underline">← 返回訂單列表</Link>
-        <div className="text-red-600">讀取訂單失敗或無權限。</div>
+      <main className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">訂單查詢</h1>
+          <Link href="/dashboard" className="text-blue-600 underline">← 回後台</Link>
+        </div>
+
+        <form method="get" className="flex gap-2 items-center">
+          <input
+            name="code"
+            placeholder="輸入訂單編號，例如：3ZZQ4E"
+            className="flex-1 border rounded px-3 py-2"
+            required
+          />
+          <button className="px-4 py-2 rounded bg-black text-white">查詢</button>
+        </form>
+
+        <p className="text-sm text-gray-500">
+          目前 RLS 僅允許以訂單編號查單；若要列表檢視，需另外為商戶成員開啟相應的 SELECT Policy。
+        </p>
       </main>
     )
   }
 
-  // 僅抓屬於該商戶的明細列（RLS 仍會再保護一次）
-  const { data: items, error: iErr } = await sb
+  // 有 code -> 帶 header 查單
+  const supabase = await sbWithCode(code)
+
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .select('*')
+    .single()
+
+  if (orderErr || !order) {
+    return (
+      <main className="max-w-4xl mx-auto p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">找不到訂單</h1>
+          <Link href="/dashboard/orders" className="text-blue-600 underline">重新查詢</Link>
+        </div>
+        <p className="text-gray-600">請確認訂單編號是否正確：<b>{code}</b></p>
+        <div className="text-sm text-gray-500">
+          也可前往前台查詢頁：
+          <Link href={`/checkout/confirm/${code}`} className="text-blue-600 underline ml-1">
+            /checkout/confirm/{code}
+          </Link>
+        </div>
+      </main>
+    )
+  }
+
+  const { data: items } = await supabase
     .from('order_items')
     .select('*')
     .eq('order_id', order.id)
-    .eq('merchant_slug', merchant)
-
-  if (iErr) {
-    return (
-      <main className="p-6 space-y-2">
-        <Link href="/dashboard/orders" className="text-blue-600 underline">← 返回訂單列表</Link>
-        <div className="text-red-600">讀取明細失敗：{iErr.message}</div>
-      </main>
-    )
-  }
-
-  const merchantTotals = (() => {
-    const map = new Map<string, number>()
-    for (const it of (items ?? [])) {
-      const cur = (it.currency || 'HKD').toUpperCase()
-      const line = Number(it.price ?? 0) * Number(it.qty ?? 1)
-      map.set(cur, (map.get(cur) || 0) + line)
-    }
-    return Array.from(map.entries()) // [[HKD, 123], ...]
-  })()
 
   return (
-    <main className="p-6 space-y-4">
+    <main className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/dashboard/orders" className="text-blue-600 underline">← 返回訂單列表</Link>
-        <div className="text-sm text-gray-500">{new Date(order.created_at).toLocaleString()}</div>
+        <h1 className="text-2xl font-semibold">訂單詳情</h1>
+        <Link href="/dashboard/orders" className="text-blue-600 underline">← 重新查詢</Link>
       </div>
 
-      <h1 className="text-2xl font-semibold">訂單 {order.order_code}</h1>
+      <div className="space-y-1">
+        <div>訂單編號：<b>{order.order_code}</b></div>
+        <div>建立時間：{new Date(order.created_at).toLocaleString()}</div>
+        <div>付款方式：{order.payment_method}</div>
+        <div>付款狀態：{order.payment_status}</div>
+      </div>
 
-      <section className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <h2 className="font-medium">顧客資料</h2>
+      <section className="space-y-2">
+        <h2 className="text-lg font-medium">顧客 / 送貨資料</h2>
+        <div className="text-sm text-gray-700">
           <div>姓名：{order.customer_name}</div>
           <div>Email：{order.customer_email}</div>
           <div>電話：{order.customer_phone}</div>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="font-medium">送貨資料</h2>
-          <pre className="bg-gray-50 p-3 rounded text-sm">
-            {JSON.stringify(order.shipping_address, null, 2)}
-          </pre>
+          <div>
+            地址：
+            {order.shipping_address?.country} {order.shipping_address?.city}{' '}
+            {order.shipping_address?.address} {order.shipping_address?.postal_code}
+          </div>
+          {order.note && <div>備註：{order.note}</div>}
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="font-medium">你的商戶（{merchant}）明細</h2>
+      <section className="space-y-2">
+        <h2 className="text-lg font-medium">訂單項目</h2>
         {!items?.length ? (
-          <div className="text-gray-500">此訂單沒有屬於你商戶的品項。</div>
+          <p className="text-gray-500">—</p>
         ) : (
-          <div className="space-y-3">
-            {items.map((it) => (
-              <div key={it.id} className="border rounded p-3">
+          <div className="divide-y border rounded">
+            {items.map((it: any) => (
+              <div key={it.id} className="p-3 text-sm">
                 <div className="font-medium">{it.title}</div>
-                <div className="text-sm text-gray-500">x {it.qty}</div>
-                <div className="text-sm">
-                  單價：{it.currency} {Number(it.price).toLocaleString()}
-                </div>
-                {it.permalink && (
-                  <a className="text-sm text-blue-600 underline" href={it.permalink} target="_blank">
-                    查看 Instagram 貼文
-                  </a>
-                )}
+                <div className="text-gray-500">@{it.merchant_slug}</div>
+                <div>數量：{it.qty}</div>
+                <div>單價：{it.currency} {Number(it.price).toLocaleString()}</div>
               </div>
             ))}
-
-            <div className="border-t pt-3">
-              <h3 className="font-medium">小計（依幣別）</h3>
-              <div className="space-y-1">
-                {merchantTotals.map(([cur, sum]) => (
-                  <div key={cur} className="flex items-center justify-between">
-                    <span>{cur}</span>
-                    <span>{sum.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </section>
 
-      {order.note && (
-        <section className="space-y-2">
-          <h2 className="font-medium">顧客備註</h2>
-          <div className="p-3 rounded bg-gray-50 whitespace-pre-wrap">{order.note}</div>
-        </section>
-      )}
+      <section className="space-y-2">
+        <h2 className="text-lg font-medium">金額小計</h2>
+        {/* currency_totals 為 jsonb，例如 {"HKD": 1234, "TWD": 500} */}
+        {order.currency_totals ? (
+          <div className="space-y-1">
+            {Object.entries(order.currency_totals as Record<string, number>).map(([cur, sum]) => (
+              <div key={cur} className="flex items-center justify-between">
+                <span>小計（{cur}）</span>
+                <span>{cur} {Number(sum).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500">—</p>
+        )}
+      </section>
+
+      <div className="flex items-center gap-3">
+        <Link
+          href={`/checkout/confirm/${order.order_code}`}
+          className="px-4 py-2 rounded border"
+        >
+          前台查看
+        </Link>
+        <Link href="/dashboard" className="text-blue-600 underline">
+          回後台首頁
+        </Link>
+      </div>
     </main>
   )
 }
