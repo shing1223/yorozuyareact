@@ -1,20 +1,21 @@
+// app/checkout/page.tsx
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'   // ⬅️ 新增
 import { readCart, clearCart } from '@/lib/cart-storage'
 import type { Cart, CartItem } from '@/types/cart'
 
 export default function CheckoutPage() {
-  const router = useRouter()                  // ⬅️ 新增
   const [cart, setCart] = useState<Cart>({ items: [] })
   const [loading, setLoading] = useState(false)
+  const [orderCode, setOrderCode] = useState<string | null>(null)
 
   useEffect(() => {
     setCart(readCart())
   }, [])
 
+  // 依幣別分組小計（明確型別）
   const totals: Array<[string, number]> = useMemo(() => {
     const map = new Map<string, number>()
     for (const it of cart.items) {
@@ -56,15 +57,25 @@ export default function CheckoutPage() {
       const j = await r.json()
       if (!r.ok) throw new Error(j?.detail || r.statusText)
 
-      // ✅ 清空購物車並導去 confirm 頁
+      setOrderCode(j.order_code)
       clearCart()
       setCart({ items: [] })
-      router.replace(`/orders/${j.order_code}`)
     } catch (err: any) {
       alert(`提交失敗：${err?.message || err}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  if (orderCode) {
+    return (
+      <main className="max-w-4xl mx-auto p-6 space-y-4">
+        <h1 className="text-3xl font-bold">訂單已送出</h1>
+        <p>我們已收到你的訂單，請留意商戶聯繫（線下支付）。</p>
+        <p>你的訂單編號：<b>{orderCode}</b></p>
+        <Link href="/" className="text-blue-600 underline">回首頁</Link>
+      </main>
+    )
   }
 
   return (
@@ -81,7 +92,38 @@ export default function CheckoutPage() {
           {/* 左：表單 */}
           <section className="lg:col-span-2 space-y-6">
             <form onSubmit={onSubmit} className="space-y-6">
-              {/* …你的表單維持不變… */}
+              <div>
+                <h2 className="text-lg font-semibold mb-2">顧客資料</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input name="name" placeholder="姓名 *" required className="border rounded px-3 py-2" />
+                  <input name="email" placeholder="Email *" type="email" required className="border rounded px-3 py-2" />
+                  <input name="phone" placeholder="聯絡電話 *" required className="border rounded px-3 py-2 md:col-span-2" />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-semibold mb-2">送貨資料</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input name="country" placeholder="國家/地區 *" required className="border rounded px-3 py-2" />
+                  <input name="city" placeholder="城市 *" required className="border rounded px-3 py-2" />
+                  <input name="address" placeholder="地址 *" required className="border rounded px-3 py-2 md:col-span-2" />
+                  <input name="postal_code" placeholder="郵遞區號" className="border rounded px-3 py-2" />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-semibold mb-2">備註</h2>
+                <textarea name="note" placeholder="有什麼想補充的…" rows={3} className="w-full border rounded px-3 py-2" />
+              </div>
+
+              <div>
+                <h2 className="text-lg font-semibold mb-2">付款方式</h2>
+                <div className="p-3 border rounded bg-gray-50">
+                  <p>線下支付（OFFLINE）</p>
+                  <p className="text-sm text-gray-500">送出訂單後，由商戶與你聯繫並提供付款方式；完成付款後安排出貨。</p>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -92,28 +134,43 @@ export default function CheckoutPage() {
             </form>
           </section>
 
-          {/* 右：摘要（你的版本已 OK） */}
+          {/* 右：摘要 */}
           <aside className="border rounded p-4 h-fit space-y-3">
             <h2 className="text-lg font-semibold">訂單項目</h2>
-            <div className="space-y-3">
-              {cart.items.map((it: CartItem) => (
-                <div key={`${it.merchant_slug}_${it.ig_media_id}`} className="border rounded p-3 text-sm">
-                  <div className="font-medium truncate">{it.title}</div>
-                  <div className="text-gray-500">@{it.merchant_slug}</div>
-                  <div>數量：{it.qty}</div>
-                  <div>
-                    單價：{it.currency ?? 'HKD'} {typeof it.price === 'number' ? it.price.toLocaleString() : '—'}
-                  </div>
+
+            {cart.items.length === 0 ? (
+              <p className="text-gray-500">購物車為空。</p>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {cart.items.map((it: CartItem) => (
+                    <div
+                      key={`${it.merchant_slug}_${it.ig_media_id}`}
+                      className="border rounded p-3 text-sm"
+                    >
+                      <div className="font-medium truncate">{it.title}</div>
+                      <div className="text-gray-500">@{it.merchant_slug}</div>
+                      <div>數量：{it.qty}</div>
+                      <div>
+                        單價：{it.currency ?? 'HKD'}{' '}
+                        {typeof it.price === 'number' ? it.price.toLocaleString() : '—'}
+                      </div>
+                    </div>
+                  ))}
+
+                  {totals.map(([cur, sum]) => (
+                    <div key={cur} className="flex items-center justify-between">
+                      <span>小計（{cur}）</span>
+                      <span>{cur} {sum.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {totals.map(([cur, sum]) => (
-                <div key={cur} className="flex items-center justify-between">
-                  <span>小計（{cur}）</span>
-                  <span>{cur} {sum.toLocaleString()}</span>
+
+                <div className="pt-2 text-sm text-gray-500">
+                  * 本訂單為線下支付；多商戶與多幣別已分列金額。
                 </div>
-              ))}
-            </div>
-            <div className="pt-2 text-sm text-gray-500">* 本訂單為線下支付；多商戶與多幣別已分列金額。</div>
+              </>
+            )}
           </aside>
         </div>
       )}
