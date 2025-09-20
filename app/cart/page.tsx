@@ -134,13 +134,12 @@ export default function CartPage() {
             <p className="text-xs text-gray-500">
               * 金額依幣別分列。若要「單幣別結帳（HKD）」請在加入購物車時統一帶入 HKD 單價與幣別。
             </p>
-            <button
-              className="w-full px-4 py-3 rounded-lg bg-black text-white disabled:opacity-50"
-              disabled={!items.length}
-              onClick={() => alert('示意：導向結帳（尚未實作）')}
-            >
-              前往結帳
-            </button>
+           <Link
+  href="/checkout"
+  className="block w-full text-center px-4 py-3 rounded-lg bg-black text-white disabled:opacity-50"
+>
+  前往結帳
+</Link>
           </aside>
         </div>
       )}
