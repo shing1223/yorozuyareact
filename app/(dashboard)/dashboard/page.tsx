@@ -178,8 +178,8 @@ function MediaCard({
       required
     >
       <option value="HKD">HKD</option>
-      <option value="TWD">TWD</option>
-      <option value="USD">USD</option>
+      {/*<option value="TWD">TWD</option>
+      <option value="USD">USD</option>*/}
     </select>
   </div>
 
