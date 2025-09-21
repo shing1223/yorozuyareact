@@ -88,7 +88,7 @@ export async function GET(req: Request) {
         token_expires_at: tokenExpiresAt,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'merchant_slug,ig_user_id' }
+      { onConflict: 'merchant_slug' }
     )
 
   if (upsertErr) {
