@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function NewMerchantPage({ searchParams }: { searchParams?: { ok?: string; error?: string } }) {
   const supabase = await createSupabaseServer()
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login?redirect=/dashboard/merchants/new')
+  if (!session) redirect('/login?redirect=/dashboard/members')
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
@@ -28,7 +28,7 @@ export default async function NewMerchantPage({ searchParams }: { searchParams?:
         </div>
       )}
 
-      <form action="/api/merchants/create" method="post" className="space-y-4">
+      <form action="/api/members/add" method="post" className="space-y-4">
         <div>
           <label className="block text-sm text-gray-600 mb-1">商戶代稱（slug）</label>
           <input name="slug" placeholder="shop2" required className="w-full rounded border px-3 py-2" />
