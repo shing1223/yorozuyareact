@@ -52,19 +52,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
     }
 
-    // 檢查目前使用者是否為該商戶 owner/admin
-    {
-      const { data: me } = await adminDb
-        .from('membership')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('merchant_id', merchant)
-        .maybeSingle()
+    // app/api/members/add/route.ts 內，權限檢查替換為：
+  // 先看該商戶是否已有任一成員
+  const { data: anyMember } = await adminDb
+    .from('membership')
+    .select('user_id')
+    .eq('merchant_id', merchant)
+    .limit(1)
+    .maybeSingle()
 
-      if (!me || !['owner', 'admin'].includes(String(me.role))) {
-        return NextResponse.json({ error: 'forbidden', detail: 'not allowed' }, { status: 403 })
-      }
+  if (!anyMember) {
+    // 沒有任何成員：允許 bootstrap，把呼叫者設為 owner
+    await adminDb
+      .from('membership')
+      .upsert({ user_id: user.id, merchant_id: merchant, role: 'owner' }, { onConflict: 'user_id,merchant_id' })
+  } else {
+    // 已有成員：呼叫者必須是 owner/admin 才能新增其他人
+    const { data: me } = await adminDb
+      .from('membership')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('merchant_id', merchant)
+      .maybeSingle()
+
+    if (!me || !['owner', 'admin'].includes(String(me.role))) {
+      return NextResponse.json({ error: 'forbidden', detail: 'not allowed' }, { status: 403 })
     }
+  }
 
     // 以 Email 查找使用者（Auth Admin API）
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
