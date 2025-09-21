@@ -2,15 +2,32 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase-server'
+
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardHome() {
+export default async function DashboardHome({
+  searchParams,
+}: {
+  searchParams?: { merchant?: string }
+}) {
   const supabase = await createSupabaseServer()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login?redirect=/dashboard')
 
-  const merchant = 'shop1'
+  // 讀取當前使用者可用的商戶
+  const { data: myMerchants } = await supabase
+    .from('membership')
+    .select('merchant_id')
+    .eq('user_id', session.user.id)
 
+  const merchantFromUrl = (searchParams?.merchant || '').trim().toLowerCase()
+  const canUse = new Set((myMerchants || []).map(m => (m.merchant_id || '').toLowerCase()))
+  const merchant =
+    merchantFromUrl && canUse.has(merchantFromUrl)
+      ? merchantFromUrl
+      : (myMerchants?.[0]?.merchant_id || 'shop1') // 後備：第一個可用 or 仍退回 shop1
+
+  // 下面所有查詢都用這個 merchant
   const { data: acct } = await supabase
     .from('ig_account')
     .select('ig_username, ig_user_id')
@@ -62,15 +79,31 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      {/* Header + Actions */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">後台總覽</h1>
-        <Link
-          href="/dashboard/orders"
-          className="inline-flex items-center gap-2 rounded bg-black px-4 py-2 text-white hover:opacity-90"
-        >
-          查看訂單
-        </Link>
+
+        {/* 簡單的商戶切換 */}
+        <div className="flex items-center gap-2">
+          <select
+            defaultValue={merchant}
+            onChange={(e) => {
+              // 客端換 URL 重新載入
+              window.location.href = `/dashboard?merchant=${encodeURIComponent(e.target.value)}`
+            }}
+            className="border rounded px-2 py-1"
+          >
+            {(myMerchants || []).map(m => (
+              <option key={m.merchant_id} value={m.merchant_id}>{m.merchant_id}</option>
+            ))}
+          </select>
+
+          <Link
+            href="/dashboard/orders"
+            className="inline-flex items-center gap-2 rounded bg-black px-4 py-2 text-white hover:opacity-90"
+          >
+            查看訂單
+          </Link>
+        </div>
       </div>
 
       {!acct ? (
