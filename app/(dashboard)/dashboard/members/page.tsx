@@ -15,7 +15,7 @@ export default async function MembersPage({
   if (!session) redirect('/login?redirect=/dashboard/members')
 
   // TODO: 之後可從使用者設定/選單取用；先寫死示範商戶
-  const merchant = 'shop1'
+  const merchant = 'shop2'
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
