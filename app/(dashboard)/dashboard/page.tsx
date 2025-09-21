@@ -5,27 +5,19 @@ import { createSupabaseServer } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardHome({
-  searchParams,
-}: {
-  searchParams?: { merchant?: string }
-}) {
+export default async function DashboardHome() {
   const supabase = await createSupabaseServer()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login?redirect=/dashboard')
 
-  // 讀取當前使用者可用的商戶
+  // 取得此使用者的唯一商戶（平台為 1:1）
   const { data: myMerchants } = await supabase
     .from('membership')
     .select('merchant_id')
     .eq('user_id', session.user.id)
+    .limit(1)
 
-  const merchantFromUrl = (searchParams?.merchant || '').trim().toLowerCase()
-  const canUse = new Set((myMerchants || []).map(m => (m.merchant_id || '').toLowerCase()))
-  const merchant =
-    merchantFromUrl && canUse.has(merchantFromUrl)
-      ? merchantFromUrl
-      : (myMerchants?.[0]?.merchant_id || 'shop1') // 後備：第一個可用 or 仍退回 shop1
+  const merchant = (myMerchants?.[0]?.merchant_id || 'shop1').trim().toLowerCase()
 
   // 下面所有查詢都用這個 merchant
   const { data: acct } = await supabase
@@ -46,9 +38,9 @@ export default async function DashboardHome({
     .select('ig_media_id, is_published')
     .eq('merchant_slug', merchant)
 
-  // ✅ 補回 publishedMap
+  // ✅ 製作 publishedMap
   const publishedMap = new Map<string, boolean>(
-    (sel ?? []).map(s => [String(s.ig_media_id), !!s.is_published])
+    (sel ?? []).map((s) => [String(s.ig_media_id), !!s.is_published])
   )
 
   // ⬇️ 取每則媒體是否已有商品與價格（left join）
@@ -57,7 +49,6 @@ export default async function DashboardHome({
     .select('ig_media_id, product:product_id(id, title, price, currency)')
     .eq('merchant_slug', merchant)
 
-  // ✅ 統一型別：允許 null；欄位都可選
   type ProductLite = {
     id?: string | null
     title?: string | null
@@ -66,7 +57,6 @@ export default async function DashboardHome({
   }
 
   const productMap = new Map<string, ProductLite>()
-
   ;(binds ?? []).forEach((b: any) => {
     const p = Array.isArray(b.product) ? b.product[0] : b.product
     productMap.set(String(b.ig_media_id), {
@@ -79,31 +69,16 @@ export default async function DashboardHome({
 
   return (
     <div className="space-y-6">
+      {/* Header + Actions */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">後台總覽</h1>
 
-        {/* 簡單的商戶切換 */}
-        <div className="flex items-center gap-2">
-          <select
-            defaultValue={merchant}
-            onChange={(e) => {
-              // 客端換 URL 重新載入
-              window.location.href = `/dashboard?merchant=${encodeURIComponent(e.target.value)}`
-            }}
-            className="border rounded px-2 py-1"
-          >
-            {(myMerchants || []).map(m => (
-              <option key={m.merchant_id} value={m.merchant_id}>{m.merchant_id}</option>
-            ))}
-          </select>
-
-          <Link
-            href="/dashboard/orders"
-            className="inline-flex items-center gap-2 rounded bg-black px-4 py-2 text-white hover:opacity-90"
-          >
-            查看訂單
-          </Link>
-        </div>
+        <Link
+          href="/dashboard/orders"
+          className="inline-flex items-center gap-2 rounded bg-black px-4 py-2 text-white hover:opacity-90"
+        >
+          查看訂單
+        </Link>
       </div>
 
       {!acct ? (
@@ -135,7 +110,7 @@ export default async function DashboardHome({
           <p className="text-gray-500">尚無資料，先點「同步最新媒體」。</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {medias.map(m => (
+            {medias.map((m) => (
               <MediaCard
                 key={m.ig_media_id}
                 m={m}
@@ -153,7 +128,7 @@ export default async function DashboardHome({
 
 function firstLine(text?: string | null) {
   if (!text) return ''
-  const line = text.split('\n').map(s => s.trim()).find(Boolean)
+  const line = text.split('\n').map((s) => s.trim()).find(Boolean)
   return line ?? ''
 }
 
@@ -226,8 +201,8 @@ function MediaCard({
               required
             >
               <option value="HKD">HKD</option>
-              {/*<option value="TWD">TWD</option>
-              <option value="USD">USD</option>*/}
+              {/* <option value="TWD">TWD</option>
+              <option value="USD">USD</option> */}
             </select>
           </div>
 
@@ -239,7 +214,7 @@ function MediaCard({
         {/* 已設價格顯示 */}
         {product?.price != null && (
           <div className="text-xs text-gray-600">
-            目前售價：{product.currency ?? 'TWD'} {Number(product.price).toLocaleString()}
+            目前售價：{product?.currency ?? 'TWD'} {Number(product?.price).toLocaleString()}
           </div>
         )}
       </div>
