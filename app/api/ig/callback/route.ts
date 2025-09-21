@@ -75,32 +75,46 @@ export async function GET(req: Request) {
     )
   }
 
-  // 4) DB upsert（用使用者 Session + RLS）
+  // 4) DB：使用者 session + 會員預檢（RPC）+ upsert
   const supabase = await getServerSupabase()
-  const { error: upsertErr } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    // 沒登入就導回登入（保留原參數以便重試）
+    const login = new URL('/login', url.origin)
+    login.searchParams.set('redirect', url.pathname + url.search)
+    return NextResponse.redirect(login, { status: 302 })
+  }
+
+  // 正規化 merchant，避免空白/大小寫造成不匹配
+  const m = merchant.trim().toLowerCase()
+
+  // 用 SECURITY DEFINER 的 RPC 檢查會員（最準確）
+  const { data: isMember, error: rpcErr } = await supabase.rpc('is_member_text', { p_merchant_id: m })
+  if (rpcErr) return NextResponse.json({ error: 'precheck_failed', detail: rpcErr.message }, { status: 500 })
+  if (!isMember) {
+    return NextResponse.json({ error: 'forbidden', detail: `not a member of ${m}`, extra: { user_id: user.id } }, { status: 403 })
+  }
+
+  // upsert（不要 .select()）；onConflict 要與唯一索引一致
+  const { error: upErr } = await supabase
     .from('ig_account')
     .upsert(
       {
-        merchant_slug: merchant,
+        merchant_slug: m,
         ig_user_id: me.id,
         ig_username: me.username ?? null,
         access_token: longToken,
         token_expires_at: tokenExpiresAt,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'merchant_slug' }
+      { onConflict: 'merchant_slug' } // 若你建立的是 (merchant_slug, ig_user_id) 唯一索引，這裡改成相同字串
     )
 
-  if (upsertErr) {
-    return NextResponse.json({ error: 'db_upsert_failed', detail: upsertErr.message }, { status: 500 })
+  if (upErr) {
+    return NextResponse.json({ error: 'db_upsert_failed', detail: upErr.message }, { status: 500 })
   }
 
-  if (debug) {
-    return NextResponse.json({ ok: true, merchant, me, token_expires_at: tokenExpiresAt })
-  }
+  if (debug) return NextResponse.json({ ok: true, merchant: m, me, token_expires_at: tokenExpiresAt })
 
-  return NextResponse.redirect(
-    new URL(`/dashboard?merchant=${merchant}&connected=1`, url.origin),
-    { status: 302 }
-  )
+  return NextResponse.redirect(new URL(`/dashboard?merchant=${m}&connected=1`, url.origin), { status: 302 })
 }
