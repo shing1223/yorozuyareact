@@ -17,7 +17,7 @@ export default async function DashboardHome() {
     .eq('user_id', session.user.id)
     .limit(1)
 
-  const merchant = (myMerchants?.[0]?.merchant_id || 'shop1').trim().toLowerCase()
+const merchant = (myMerchants?.[0]?.merchant_id || '').trim().toLowerCase();
 
   // 下面所有查詢都用這個 merchant
   const { data: acct } = await supabase
