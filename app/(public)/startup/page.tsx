@@ -1,28 +1,10 @@
 // app/(public)/startup/page.tsx
 import Link from "next/link"
 import AppHeader from "@/components/AppHeader"
-import { cookies } from "next/headers"
-import { createServerClient } from "@supabase/ssr"
+
+import { getSb } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
-
-async function getSb() {
-  const jar = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return jar.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            jar.set({ name, value, ...options })
-          })
-        },
-      },
-    }
-  )
-}
 
 export default async function StartupPage() {
   const supabase = await getSb()

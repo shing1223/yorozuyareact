@@ -1,42 +1,24 @@
 // app/(public)/service/page.tsx
 import Link from "next/link"
 import AppHeader from "@/components/AppHeader"
-import { cookies } from "next/headers"
-import { createServerClient } from "@supabase/ssr"
+import { getSb } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
 
-async function getSb() {
-  const jar = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return jar.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            jar.set({ name, value, ...options })
-          })
-        },
-      },
-    }
-  )
-}
-
 export default async function ServicePage() {
-    const supabase = await getSb()
+  const supabase = await getSb()
 
-  // 取得「公開 & 類別=初創」的租戶
- const { data: merchants, error } = await supabase
-  .from("merchants")
-  .select("slug, name")
-  .eq("is_public", true)
-  .eq("category", "service")
+  // 取得「公開 & 類別 = service」的租戶
+  const { data: merchants, error } = await supabase
+    .from("merchants")
+    .select("slug, name")
+    .eq("is_public", true)
+    .eq("category", "service")
     .order("created_at", { ascending: true })
+    .order("name", { ascending: true, nullsFirst: false })
 
   if (error) {
-    console.error("startup merchants error:", error)
+    console.error("service merchants error:", error)
   }
 
   return (

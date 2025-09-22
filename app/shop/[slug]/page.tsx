@@ -31,7 +31,7 @@ export default async function ShopPage({
   // ===== 決定來源 =====
   const from = searchParams?.from
   const headerList = headers()
-  const referer = (await headerList).get("referer") || "" // ✅ 不要 await
+  const referer = (await headerList).get("referer") || ""
 
   let backHref = "/shop/categories"
   let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"

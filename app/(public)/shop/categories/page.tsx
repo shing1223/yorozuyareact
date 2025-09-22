@@ -1,41 +1,23 @@
 // app/(public)/shop/page.tsx
 import Link from "next/link"
 import AppHeader from "@/components/AppHeader"
-import { cookies } from "next/headers"
-import { createServerClient } from "@supabase/ssr"
+import { getSb } from "@/lib/supabaseServer"
 
 export const dynamic = "force-dynamic"
-
-async function getSb() {
-  const jar = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return jar.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            jar.set({ name, value, ...options })
-          })
-        },
-      },
-    }
-  )
-}
 
 export default async function CategoriesPage() {
   const supabase = await getSb()
 
   const { data: merchants, error } = await supabase
-  .from("merchants")
-  .select("slug, name")
-  .eq("is_public", true)
-  .eq("category", "shop")
+    .from("merchants")
+    .select("slug, name")
+    .eq("is_public", true)
+    .eq("category", "shop")
     .order("created_at", { ascending: true })
+    .order("name", { ascending: true, nullsFirst: false })
 
   if (error) {
-    console.error("startup merchants error:", error)
+    console.error("shop merchants error:", error)
   }
 
   return (
