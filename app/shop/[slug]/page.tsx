@@ -13,9 +13,13 @@ export default async function ShopPage({
   params,
   searchParams,
 }: {
-  params: { slug: string }
-  searchParams?: { from?: FromKey }
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ from?: FromKey }>
 }) {
+  // ✅ await 新版 async params / searchParams
+  const { slug } = await params
+  const { from } = await searchParams
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -23,16 +27,18 @@ export default async function ShopPage({
 
   const { data, error } = await supabase
     .from("v_public_feed")
-    .select("ig_media_id, media_type, media_url, thumbnail_url, caption, permalink, timestamp")
-    .eq("merchant_slug", params.slug)
+    .select(
+      "ig_media_id, media_type, media_url, thumbnail_url, caption, permalink, timestamp"
+    )
+    .eq("merchant_slug", slug)
     .order("timestamp", { ascending: false })
     .limit(60)
 
-  // ===== 決定來源 =====
-  const from = searchParams?.from
-  const headerList = headers()
-  const referer = (await headerList).get("referer") || ""
+  // ✅ await 新版 async headers()
+  const headerList = await headers()
+  const referer = headerList.get("referer") || ""
 
+  // 來源判斷
   let backHref = "/shop/categories"
   let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"
 
@@ -58,10 +64,10 @@ export default async function ShopPage({
   return (
     <main className="mx-auto max-w-[1080px]">
       <DetailAppHeader
-        brand={`@${params.slug} 精選`}   // 顯示在第一行
-        handle=""                           // 不顯示副標
-        activeFeature={activeFeature}       // 控制返回鍵顏色
-        backHref={backHref}                 // 返回正確上一頁
+        brand={`@${slug} 精選`}   // 顯示在第一行
+        handle=""                 // 不顯示副標
+        activeFeature={activeFeature}
+        backHref={backHref}
         showFeatureRow={false}
       />
 
@@ -72,18 +78,19 @@ export default async function ShopPage({
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {data.map((m) => {
-              const img = m.media_type === "VIDEO" ? (m.thumbnail_url ?? m.media_url) : m.media_url
+              const img =
+                m.media_type === "VIDEO" ? (m.thumbnail_url ?? m.media_url) : m.media_url
+              const nextFrom =
+                from ??
+                (activeFeature === "初創"
+                  ? "startup"
+                  : activeFeature === "服務"
+                  ? "service"
+                  : "shop")
               return (
                 <Link
                   key={m.ig_media_id}
-                  href={`/shop/${params.slug}/media/${m.ig_media_id}?from=${
-                    from ??
-                    (activeFeature === "初創"
-                      ? "startup"
-                      : activeFeature === "服務"
-                      ? "service"
-                      : "shop")
-                  }`}
+                  href={`/shop/${slug}/media/${m.ig_media_id}?from=${nextFrom}`}
                   className="group block overflow-hidden rounded-2xl border bg-white shadow-sm active:scale-[0.98]"
                 >
                   <div className="relative">

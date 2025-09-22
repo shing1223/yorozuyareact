@@ -16,9 +16,13 @@ export default async function MediaDetail({
   params,
   searchParams,
 }: {
-  params: { slug: string; id: string }
-  searchParams?: { from?: FromKey }
+  params: Promise<{ slug: string; id: string }>
+  searchParams: Promise<{ from?: FromKey }>
 }) {
+  // ✅ await 新版 async params/searchParams
+  const { slug, id } = await params
+  const { from } = await searchParams
+
   const supabase = await getSb()
 
   // ① 取公開貼文
@@ -27,15 +31,15 @@ export default async function MediaDetail({
     .select(
       "merchant_slug, ig_media_id, media_type, media_url, thumbnail_url, caption, permalink, timestamp"
     )
-    .eq("merchant_slug", params.slug)
-    .eq("ig_media_id", params.id)
+    .eq("merchant_slug", slug)
+    .eq("ig_media_id", id)
     .maybeSingle()
 
   if (error || !item) {
     return (
       <main className="max-w-5xl mx-auto p-6">
         <p className="text-gray-500">找不到這則貼文。</p>
-        <Link className="text-blue-600 underline" href={`/shop/${params.slug}`}>
+        <Link className="text-blue-600 underline" href={`/shop/${slug}`}>
           ← 返回商戶
         </Link>
       </main>
@@ -46,21 +50,17 @@ export default async function MediaDetail({
   const { data: bind } = await supabase
     .from("media_product")
     .select("product:product_id(id, title, price, currency)")
-    .eq("merchant_slug", params.slug)
-    .eq("ig_media_id", params.id)
+    .eq("merchant_slug", slug)
+    .eq("ig_media_id", id)
     .maybeSingle()
 
-  const product = Array.isArray(bind?.product)
-    ? bind?.product[0]
-    : bind?.product || null
+  const product = Array.isArray(bind?.product) ? bind?.product[0] : bind?.product || null
   const price = product?.price ?? null
   const currency = (product?.currency as string | null) ?? "TWD"
   const productTitle = (product?.title as string | null) ?? null
 
   const img =
-    item.media_type === "VIDEO"
-      ? item.thumbnail_url ?? item.media_url
-      : item.media_url
+    item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
 
   const title =
     (item.caption || "")
@@ -69,9 +69,8 @@ export default async function MediaDetail({
       .filter(Boolean)[0] || productTitle || `@${item.merchant_slug} 的精選貼文`
 
   // ===== 來源與返回設定 =====
-  const from = searchParams?.from
-  const headerList = headers()
-  const referer = (await headerList).get("referer") || ""
+  const headerList = await headers()          // ✅ await headers()
+  const referer = headerList.get("referer") || ""
 
   let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"
   let fromKey: "startup" | "service" | "shop" = "shop"
@@ -87,7 +86,7 @@ export default async function MediaDetail({
     fromKey = "shop"
   }
 
-  const backHref = `/shop/${params.slug}?from=${from ?? fromKey}`
+  const backHref = `/shop/${slug}?from=${from ?? fromKey}`
 
   const cartItem: CartItemInput = {
     merchant_slug: item.merchant_slug,
@@ -103,7 +102,7 @@ export default async function MediaDetail({
   return (
     <main className="mx-auto max-w-[1080px]">
       <DetailAppHeader
-        brand={`@${params.slug} 貼文詳情`}
+        brand={`@${slug} 貼文詳情`}
         handle=""
         activeFeature={activeFeature}  // 控制返回鍵顏色
         backHref={backHref}            // 返回該商戶清單頁
@@ -137,7 +136,7 @@ export default async function MediaDetail({
                 item={{
                   ...cartItem,
                   price: price ?? 0,
-                  currency,                // 使用後端返回的幣別
+                  currency, // 使用後端返回的幣別
                 }}
               />
               <a
@@ -150,10 +149,7 @@ export default async function MediaDetail({
             </div>
 
             <div className="pt-4">
-              <Link
-                href={backHref}
-                className="text-blue-600 underline"
-              >
+              <Link href={backHref} className="text-blue-600 underline">
                 ← 返回 @{item.merchant_slug} 貼文列表
               </Link>
             </div>
