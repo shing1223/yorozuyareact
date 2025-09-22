@@ -10,7 +10,7 @@ type FeatureItem = { label: string; bg: string; badge?: string }
 const FEATURES: FeatureItem[] = [
   { label: "首頁", bg: "bg-red-500" },
   { label: "初創", bg: "bg-pink-500" },
-  { label: "服務", bg: "bg-blue-500", badge: "34" },
+  { label: "服務", bg: "bg-blue-500" },
   { label: "網店", bg: "bg-orange-500" },
   { label: "其他", bg: "bg-emerald-500" },
 ]

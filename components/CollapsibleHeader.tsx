@@ -5,17 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Bell, Mail, Menu } from "lucide-react"
 
-type FeatureItem = { label: string; bg: string; badge?: string | number }
-type CatKey = "startup" | "shop" | "service" | "other"
-
-// label ↔︎ DB key 對應（你的 DB 用英文 enum）
-const labelToKey = (label: string): CatKey | undefined => {
-  if (label === "初創") return "startup"
-  if (label === "網店") return "shop"
-  if (label === "服務") return "service"
-  if (label === "其他") return "other"
-  return undefined
-}
+type FeatureItem = { label: string; bg: string; badge?: string }
 
 export default function CollapsibleHeader({
   brand = "萬事屋",
@@ -28,16 +18,13 @@ export default function CollapsibleHeader({
     { label: "其他", bg: "bg-emerald-500" },
   ],
   tabs = ["首頁", "熱門", "最新"],
-  activeFeature = "首頁",
-  /** 由 Server 傳入：各類別公開商戶數 */
-  categoryCounts,
+  activeFeature = "首頁", // 👈 新增
 }: {
   brand?: string
   handle?: string
   features?: FeatureItem[]
   tabs?: string[]
   activeFeature?: string
-  categoryCounts?: Partial<Record<CatKey, number>>
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
   const [rowH, setRowH] = useState<number>(0)
@@ -75,12 +62,13 @@ export default function CollapsibleHeader({
 
   // 定義跳轉路徑
   const routes: Record<string, string> = {
+    首頁: "/",
     初創: "/startup",
     服務: "/service",
     網店: "/shop/categories",
   }
 
-  // 依 activeFeature 決定主色
+  // 取得目前 active feature 的顏色
   const active = features.find((f) => f.label === activeFeature)
   const activeBg = active?.bg ?? "bg-red-500"
 
@@ -93,7 +81,10 @@ export default function CollapsibleHeader({
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-baseline gap-1">
           <span className="text-[28px] leading-none font-extrabold tracking-tight">
-            <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
+            {/* 左上角小色塊用 activeFeature 顏色 */}
+            <span
+              className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`}
+            />
             {brand}
           </span>
           <span className="text-xs text-gray-500">{handle}</span>
@@ -127,36 +118,30 @@ export default function CollapsibleHeader({
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {features.map((it) => {
               const to = routes[it.label]
-              // 如果是四大類別，就顯示對應的動態數字；否則沿用原本的 it.badge
-              const key = labelToKey(it.label)
-              const dynamicBadge = key ? categoryCounts?.[key] : undefined
-              const badge = dynamicBadge ?? it.badge
-
-              const common = (
-                <>
-                  {it.label}
-                  {badge != null && badge !== "" && (
-                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
-                      {badge}
-                    </span>
-                  )}
-                </>
-              )
-
               return to ? (
                 <Link
                   key={it.label}
                   href={to}
-                  className={`${it.bg} relative shrink-0 h-14 rounded-xl px-4 text-white font-semibold flex items-center justify-center`}
+                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative flex items-center justify-center`}
                 >
-                  {common}
+                  {it.label}
+                  {it.badge && (
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                      {it.badge}
+                    </span>
+                  )}
                 </Link>
               ) : (
                 <button
                   key={it.label}
-                  className={`${it.bg} relative shrink-0 h-14 rounded-xl px-4 text-white font-semibold`}
+                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative`}
                 >
-                  {common}
+                  {it.label}
+                  {it.badge && (
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                      {it.badge}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -170,11 +155,14 @@ export default function CollapsibleHeader({
           {tabs.map((t, i) => (
             <li key={t} className="relative">
               <button
-                className={`w-full py-3 text-sm font-semibold ${i === 0 ? "text-gray-900" : "text-gray-500"}`}
+                className={`w-full py-3 text-sm font-semibold ${
+                  i === 0 ? "text-gray-900" : "text-gray-500"
+                }`}
               >
                 {t}
               </button>
               {i === 0 && (
+                // ✅ 底線顏色也用 activeFeature 的顏色
                 <div className={`absolute bottom-0 left-3 right-3 h-[3px] rounded-full ${activeBg}`} />
               )}
             </li>
