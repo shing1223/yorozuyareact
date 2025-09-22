@@ -42,7 +42,7 @@ export default async function StartupPage() {
     <img
       src={m.avatar_url}
       alt={`${m.name} avatar`}
-      className="h-full w-full object-cover"
+      className="h-full w-full object-contain"
     />
   ) : (
     <span className="text-gray-400 text-xs">封面</span>
