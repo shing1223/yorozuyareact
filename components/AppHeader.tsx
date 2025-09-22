@@ -1,4 +1,4 @@
-// components/CollapsibleHeader.tsx
+// components/AppHeader.tsx
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -7,29 +7,40 @@ import { Bell, Mail, Menu } from "lucide-react"
 
 type FeatureItem = { label: string; bg: string; badge?: string }
 
-export default function CollapsibleHeader({
+const FEATURES: FeatureItem[] = [
+  { label: "首頁", bg: "bg-red-500" },
+  { label: "初創", bg: "bg-pink-500" },
+  { label: "服務", bg: "bg-blue-500", badge: "34" },
+  { label: "網店", bg: "bg-orange-500" },
+  { label: "其他", bg: "bg-emerald-500" },
+]
+
+// 對應路徑
+const routes: Record<string, string> = {
+  首頁: "/",
+  初創: "/startup",
+  服務: "/service",
+  網店: "/shop/categories",
+}
+
+export default function AppHeader({
   brand = "萬事屋",
   handle = "@yorozuya",
-  features = [
-    { label: "首頁", bg: "bg-red-500" },
-    { label: "初創", bg: "bg-pink-500" },
-    { label: "服務", bg: "bg-blue-500", badge: "34" },
-    { label: "網店", bg: "bg-orange-500" },
-    { label: "其他", bg: "bg-emerald-500" },
-  ],
-  tabs = ["首頁", "熱門", "最新"],
-  activeFeature = "首頁", // 👈 新增
+  activeFeature = "首頁", // 👈 新增參數，決定哪個 feature 被啟用
 }: {
   brand?: string
   handle?: string
-  features?: FeatureItem[]
-  tabs?: string[]
   activeFeature?: string
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
-  const [rowH, setRowH] = useState<number>(0)
+  const [rowH, setRowH] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
 
+  // 找到目前 active feature 的顏色
+  const active = FEATURES.find((f) => f.label === activeFeature)
+  const activeBg = active?.bg ?? "bg-red-500"
+
+  // 高度量測
   useLayoutEffect(() => {
     const el = rowRef.current
     if (!el) return
@@ -40,6 +51,7 @@ export default function CollapsibleHeader({
     return () => ro.disconnect()
   }, [])
 
+  // 下滑收起，上滑展開
   useEffect(() => {
     let ticking = false
     let lastY = window.scrollY
@@ -60,18 +72,6 @@ export default function CollapsibleHeader({
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // 定義跳轉路徑
-  const routes: Record<string, string> = {
-    首頁: "/",
-    初創: "/startup",
-    服務: "/service",
-    網店: "/shop/categories",
-  }
-
-  // 取得目前 active feature 的顏色
-  const active = features.find((f) => f.label === activeFeature)
-  const activeBg = active?.bg ?? "bg-red-500"
-
   return (
     <header
       className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
@@ -81,10 +81,8 @@ export default function CollapsibleHeader({
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-baseline gap-1">
           <span className="text-[28px] leading-none font-extrabold tracking-tight">
-            {/* 左上角小色塊用 activeFeature 顏色 */}
-            <span
-              className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`}
-            />
+            {/* ✅ 動態套用 activeFeature 的顏色 */}
+            <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
             {brand}
           </span>
           <span className="text-xs text-gray-500">{handle}</span>
@@ -116,7 +114,7 @@ export default function CollapsibleHeader({
       >
         <div className="pb-3">
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
-            {features.map((it) => {
+            {FEATURES.map((it) => {
               const to = routes[it.label]
               return to ? (
                 <Link
@@ -149,26 +147,6 @@ export default function CollapsibleHeader({
         </div>
       </div>
 
-      {/* Tabs */}
-      <nav className="px-2 border-b">
-        <ul className="grid grid-cols-3 text-center">
-          {tabs.map((t, i) => (
-            <li key={t} className="relative">
-              <button
-                className={`w-full py-3 text-sm font-semibold ${
-                  i === 0 ? "text-gray-900" : "text-gray-500"
-                }`}
-              >
-                {t}
-              </button>
-              {i === 0 && (
-                // ✅ 底線顏色也用 activeFeature 的顏色
-                <div className={`absolute bottom-0 left-3 right-3 h-[3px] rounded-full ${activeBg}`} />
-              )}
-            </li>
-          ))}
-        </ul>
-      </nav>
     </header>
   )
 }

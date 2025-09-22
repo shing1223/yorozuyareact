@@ -1,12 +1,8 @@
 // app/page.tsx
 import Link from "next/link"
-import Image from "next/image"
 import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
-import {
-  Home as HomeIcon, Wallet, Download, Gift, Inbox, // ← 這裡把 Home 取別名
-  Menu, ScanLine, Bell, Mail
-} from "lucide-react"
+
 import CollapsibleHeader from "@/components/CollapsibleHeader"
 
 export const dynamic = "force-dynamic"
