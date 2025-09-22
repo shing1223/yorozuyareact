@@ -37,12 +37,12 @@ export default async function StartupPage() {
                  href={`/shop/${m.slug}?from=startup`}
                  className="group overflow-hidden rounded-2xl border bg-white p-3 shadow-sm active:scale-[0.98]"
                 >
-               <div className="h-40 w-full rounded-xl bg-gray-100 grid place-items-center overflow-hidden">
+               <div className="h-40 w-full flex items-center justify-center bg-gray-100 rounded-xl">
   {m.avatar_url ? (
     <img
       src={m.avatar_url}
       alt={`${m.name} avatar`}
-      className="h-full w-full object-contain"
+      className="h-20 w-20 rounded-full object-contain bg-white"
     />
   ) : (
     <span className="text-gray-400 text-xs">封面</span>

@@ -37,12 +37,12 @@ export default async function CategoriesPage() {
                 href={`/shop/${m.slug}?from=shop`}
                 className="group overflow-hidden rounded-2xl border bg-white p-3 shadow-sm active:scale-[0.98]"
               >
-                 <div className="h-20 w-full flex items-center justify-center bg-gray-100 rounded-xl">
+                 <div className="h-40 w-full flex items-center justify-center bg-gray-100 rounded-xl">
   {m.avatar_url ? (
     <img
       src={m.avatar_url}
       alt={`${m.name} avatar`}
-      className="h-16 w-16 rounded-full object-cover"
+      className="h-20 w-20 rounded-full object-contain bg-white"
     />
   ) : (
     <span className="text-gray-400 text-xs">封面</span>
