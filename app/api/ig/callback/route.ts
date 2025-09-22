@@ -63,11 +63,11 @@ export async function GET(req: Request) {
   const tokenExpiresAt =
     j2.expires_in ? new Date(Date.now() + Number(j2.expires_in) * 1000).toISOString() : null
 
-  // 3) me（多拿 profile_picture_url）
+  // 3) me（包含 profile_picture_url）
   const rMe = await fetch(
-  `https://graph.instagram.com/me?fields=id,username,profile_picture_url&access_token=${encodeURIComponent(longToken)}`
-)
-const me: any = await rMe.json().catch(() => ({}))
+    `https://graph.instagram.com/me?fields=id,username,profile_picture_url&access_token=${encodeURIComponent(longToken)}`
+  )
+  const me: any = await rMe.json().catch(() => ({}))
   if (!rMe.ok || !me.id) {
     return NextResponse.json(
       { error: 'oauth_failed', detail: `fetch me failed: ${me.error?.message || rMe.statusText}`, raw: me },
@@ -75,7 +75,7 @@ const me: any = await rMe.json().catch(() => ({}))
     )
   }
 
-  // 4) DB：使用者 session + 會員預檢 + upsert
+  // 4) 使用者 session + 會員預檢 + upsert ig_account
   const supabase = await getServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -92,47 +92,35 @@ const me: any = await rMe.json().catch(() => ({}))
     return NextResponse.json({ error: 'forbidden', detail: `not a member of ${m}`, extra: { user_id: user.id } }, { status: 403 })
   }
 
-  // upsert 到 ig_account（維持你原本邏輯）
+  // 只 upsert 到 ig_account（包含 profile_picture_url），不更新 merchants
   const { error: upErr } = await supabase
-  .from('ig_account')
-  .upsert(
-    {
-      merchant_slug: m,
-      ig_user_id: me.id,
-      ig_username: me.username ?? null,
-      profile_picture_url: me.profile_picture_url ?? null,  // ← 新增
-      access_token: longToken,
-      token_expires_at: tokenExpiresAt,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'merchant_slug' }
-  )
-
+    .from('ig_account')
+    .upsert(
+      {
+        merchant_slug: m,
+        ig_user_id: me.id,
+        ig_username: me.username ?? null,
+        profile_picture_url: me.profile_picture_url ?? null,
+        access_token: longToken,
+        token_expires_at: tokenExpiresAt,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'merchant_slug' }
+    )
 
   if (upErr) {
     return NextResponse.json({ error: 'db_upsert_failed', detail: upErr.message }, { status: 500 })
   }
 
-  // 5) 🔴 關鍵：把 IG 頭像寫回 merchants.avatar_url
-  if (me.profile_picture_url) {
-    const { error: mErr } = await supabase
-      .from('merchants')
-      .update({ profile_picture_url: me.profile_picture_url })
-      .eq('slug', m)
-
-    if (mErr) {
-      // 不致命；回傳 warning 讓你觀察日誌（非必要）
-      console.warn('update merchants.profile_picture_url failed:', mErr.message)
-    }
+  if (debug) {
+    return NextResponse.json({
+      ok: true,
+      merchant: m,
+      me,
+      token_expires_at: tokenExpiresAt,
+      ig_account_updated: true,
+    })
   }
-
-  if (debug) return NextResponse.json({
-    ok: true,
-    merchant: m,
-    me,
-    token_expires_at: tokenExpiresAt,
-    merchant_pp_synced: Boolean(me.profile_picture_url),
-  })
 
   return NextResponse.redirect(new URL(`/dashboard?merchant=${m}&connected=1`, url.origin), { status: 302 })
 }
