@@ -26,6 +26,26 @@ export async function POST(req: Request) {
   if (selErr) return NextResponse.json({ error: 'select_failed', detail: selErr.message }, { status: 500 })
   if (!acct)  return NextResponse.json({ error: 'no_account' }, { status: 404 })
 
+  // === 先刷新 IG 使用者資料（頭像）===
+  let avatarRefreshed = false
+  try {
+    const rMe = await fetch(
+      `https://graph.instagram.com/${acct.ig_user_id}?fields=id,username,profile_picture_url&access_token=${encodeURIComponent(acct.access_token)}`
+    )
+    const me: any = await rMe.json().catch(() => ({}))
+    if (rMe.ok && me?.profile_picture_url) {
+      const { error: upErr } = await sb
+        .from('ig_account')
+        .update({ profile_picture_url: me.profile_picture_url })
+        .eq('merchant_slug', acct.merchant_slug)
+      if (!upErr) avatarRefreshed = true
+      // 若有建立觸發器，merchants.profile_picture_url 會自動同步
+    }
+  } catch (_) {
+    // 忽略錯誤，不影響後續媒體同步
+  }
+
+  // === 抓取 media 並 upsert ===
   let nextURL: URL | null = new URL(`https://graph.instagram.com/${acct.ig_user_id}/media`)
   nextURL.searchParams.set(
     'fields',
@@ -67,5 +87,5 @@ export async function POST(req: Request) {
     nextURL = j.paging?.next ? new URL(j.paging.next) : null
   }
 
-  return NextResponse.json({ ok: true, merchant, inserted })
+  return NextResponse.json({ ok: true, merchant, inserted, avatarRefreshed })
 }
