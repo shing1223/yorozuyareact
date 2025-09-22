@@ -1,85 +1,95 @@
 // app/(public)/shop/categories/page.tsx
 import Link from "next/link"
-import { ChevronLeft, Search } from "lucide-react"
-import AppHeader from "@/components/AppHeader"
-
-// 先用靜態資料；之後你可改成從資料庫抓（見下方註解）
-const CATEGORIES = [
-  { slug: "snacks",    name: "零食點心",    desc: "餅乾、糖果、堅果",    bg: "from-amber-400 to-red-500",   emoji: "🍪" },
-  { slug: "beauty",    name: "美妝保養",    desc: "保養、彩妝、香氛",    bg: "from-pink-500 to-fuchsia-600", emoji: "💄" },
-  { slug: "home",      name: "居家生活",    desc: "清潔、收納、家飾",    bg: "from-emerald-400 to-teal-500", emoji: "🏠" },
-  { slug: "fashion",   name: "服飾配件",    desc: "服飾、鞋包、飾品",    bg: "from-sky-400 to-indigo-500",  emoji: "🧢" },
-  { slug: "kids",      name: "親子兒童",    desc: "玩具、文具、繪本",    bg: "from-lime-400 to-emerald-500", emoji: "🧸" },
-  { slug: "gourmet",   name: "生鮮美食",    desc: "茶飲、醬料、熟食",    bg: "from-orange-400 to-rose-500",  emoji: "🍱" },
-  { slug: "tech",      name: "3C 周邊",     desc: "耳機、行充、配件",    bg: "from-gray-700 to-gray-900",    emoji: "🎧" },
-  { slug: "handmade",  name: "手作設計",    desc: "手作、設計品牌",      bg: "from-violet-500 to-purple-700",emoji: "🧵" },
-]
+import CollapsibleHeader from "@/components/CollapsibleHeader"
+import { cookies } from "next/headers"
+import { createServerClient } from "@supabase/ssr"
 
 export const dynamic = "force-dynamic"
 
+async function getSb() {
+  const jar = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return jar.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            jar.set({ name, value, ...options })
+          })
+        },
+      },
+    }
+  )
+}
+
+type CatKey = "startup" | "shop" | "service" | "other"
+
+const CAT_META: Record<CatKey, { name: string; bg: string; emoji: string }> = {
+  startup: { name: "初創",  bg: "from-pink-500 to-fuchsia-600", emoji: "🚀" },
+  shop:    { name: "商店",  bg: "from-amber-400 to-red-500",    emoji: "🛍️" },
+  service: { name: "服務",  bg: "from-sky-400 to-indigo-500",   emoji: "🧰" },
+  other:   { name: "其他",  bg: "from-emerald-400 to-teal-500",  emoji: "✨" },
+}
+
 export default async function CategoriesPage() {
-   return (
-     <main className="mx-auto max-w-[720px]">
-        <AppHeader brand="萬事屋" handle="@yorozuya" activeFeature="網店" />
-            {/* Content */}
-      <section className="px-4 py-6 pb-24">
-        <div className="flex items-center gap-2 px-2 py-3">
-          <Link href="/" aria-label="返回首頁" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <ChevronLeft size={22} />
-          </Link>
-          <h1 className="text-base font-semibold leading-none">所有分類</h1>
-        </div>
+  const supabase = await getSb()
 
-        {/* 搜尋列（可接到你的搜尋頁） */}
-        <div className="px-4 pb-3">
-          <form action="/shop/search" className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2">
-            <Search size={18} className="text-gray-400" />
-            <input
-              name="q"
-              placeholder="搜尋商品或貼文"
-              className="w-full bg-transparent text-[15px] outline-none placeholder:text-gray-400"
-            />
-          </form>
-        </div>
+  // 取各分類的公開商戶數量
+  const { data: counts, error } = await supabase
+    .from("merchants")
+    .select("category, count:count()", { head: false })
+    .eq("is_public", true)
+    .returns<{ category: CatKey | null; count: number }[]>()
 
-        {/* 快速篩選 chips（可自訂熱門分類） */}
-        <div className="px-4 pb-3">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {["熱門", "最新", "特價", "高評分"].map((t, i) => (
-              <Link
-                key={t}
-                href={`/shop/search?sort=${encodeURIComponent(t)}`}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
-                  i === 0 ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-700"
-                }`}
-              >
-                {t}
-              </Link>
-            ))}
-          </div>
-        </div>
-       </section>
+  if (error) console.error("categories count error:", error)
 
-      {/* 分類卡片網格 */}
+  const countMap = (counts ?? []).reduce<Record<CatKey, number>>((acc, row) => {
+    const key = (row.category ?? "other") as CatKey
+    acc[key] = (acc[key] ?? 0) + Number(row.count || 0)
+    return acc
+  }, { startup: 0, shop: 0, service: 0, other: 0 })
+
+  const keys: CatKey[] = ["startup", "shop", "service", "other"]
+
+  return (
+    <main className="mx-auto max-w-[720px]">
+      <CollapsibleHeader brand="萬事屋" handle="@yorozuya" activeFeature="網店" />
+
       <section className="px-4 py-4 pb-24">
+        <h2 className="mb-3 text-xl font-bold">網店・分類</h2>
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {CATEGORIES.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/shop/categories/${c.slug}`}
-              className="group overflow-hidden rounded-2xl border bg-white shadow-sm active:scale-[0.98]"
-            >
-              <div className={`bg-gradient-to-br ${c.bg}`}>
-                <div className="grid aspect-[5/3] place-items-center">
-                  <span className="text-4xl sm:text-5xl drop-shadow">{c.emoji}</span>
+          {keys.map((k) => {
+            const meta = CAT_META[k]
+            return (
+              <Link
+                key={k}
+                href={`/shop/categories/${k}`}
+                className="group overflow-hidden rounded-2xl border bg-white shadow-sm active:scale-[0.98]"
+              >
+                <div className={`bg-gradient-to-br ${meta.bg}`}>
+                  <div className="grid aspect-[5/3] place-items-center">
+                    <span className="text-4xl sm:text-5xl drop-shadow">{meta.emoji}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="p-3">
-                <div className="line-clamp-1 font-semibold">{c.name}</div>
-                <div className="mt-1 line-clamp-1 text-xs text-gray-500">{c.desc}</div>
-              </div>
-            </Link>
-          ))}
+                <div className="p-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="line-clamp-1 font-semibold group-hover:underline">
+                      {meta.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {countMap[k] ?? 0}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    公開商戶數
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       </section>
     </main>
