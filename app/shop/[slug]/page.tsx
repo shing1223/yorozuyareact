@@ -1,11 +1,21 @@
 // app/(public)/shop/[slug]/page.tsx
 import Link from "next/link"
+import DetailAppHeader from "@/components/DetailAppHeader"
 import { createClient } from "@supabase/supabase-js"
-import { ChevronLeft, Play } from "lucide-react"
+import { Play } from "lucide-react"
+import { headers } from "next/headers"
 
 export const dynamic = "force-dynamic"
 
-export default async function ShopPage({ params }: { params: { slug: string } }) {
+type FromKey = "startup" | "service" | "shop" | undefined
+
+export default async function ShopPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string }
+  searchParams?: { from?: FromKey }
+}) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -18,32 +28,42 @@ export default async function ShopPage({ params }: { params: { slug: string } })
     .order("timestamp", { ascending: false })
     .limit(60)
 
+  // ===== 決定來源 =====
+  const from = searchParams?.from
+  const headerList = headers()
+  const referer = (await headerList).get("referer") || "" // ✅ 不要 await
+
+  let backHref = "/shop/categories"
+  let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"
+
+  if (from === "startup" || referer.includes("/startup")) {
+    backHref = "/startup"
+    activeFeature = "初創"
+  } else if (from === "service" || referer.includes("/service")) {
+    backHref = "/service"
+    activeFeature = "服務"
+  } else if (from === "shop" || referer.includes("/shop/categories")) {
+    backHref = "/shop/categories"
+    activeFeature = "網店"
+  }
+
   if (error) {
     return (
-      <main className="mx-auto max-w-[720px] p-6">
+      <main className="mx-auto max-w-[1080px] p-6">
         讀取失敗：{error.message}
       </main>
     )
   }
 
   return (
-    <main className="mx-auto max-w-[720px]">
-      {/* 置頂返回列（與首頁風格一致） */}
-      <header
-        className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-b"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="flex items-center gap-2 px-2 py-3">
-          <Link
-            href="/"
-            aria-label="返回首頁"
-            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95"
-          >
-            <ChevronLeft size={22} />
-          </Link>
-          <h1 className="text-base font-semibold leading-none">@{params.slug} 精選貼文</h1>
-        </div>
-      </header>
+    <main className="mx-auto max-w-[1080px]">
+      <DetailAppHeader
+        brand={`@${params.slug} 精選`}   // 顯示在第一行
+        handle=""                           // 不顯示副標
+        activeFeature={activeFeature}       // 控制返回鍵顏色
+        backHref={backHref}                 // 返回正確上一頁
+        showFeatureRow={false}
+      />
 
       {/* 內容 */}
       <section className="px-4 py-4 pb-24">
@@ -56,7 +76,14 @@ export default async function ShopPage({ params }: { params: { slug: string } })
               return (
                 <Link
                   key={m.ig_media_id}
-                  href={`/shop/${params.slug}/media/${m.ig_media_id}`}
+                  href={`/shop/${params.slug}/media/${m.ig_media_id}?from=${
+                    from ??
+                    (activeFeature === "初創"
+                      ? "startup"
+                      : activeFeature === "服務"
+                      ? "service"
+                      : "shop")
+                  }`}
                   className="group block overflow-hidden rounded-2xl border bg-white shadow-sm active:scale-[0.98]"
                 >
                   <div className="relative">

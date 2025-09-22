@@ -50,7 +50,7 @@ export default async function Home() {
   if (error) console.error("merchants query error:", error)
 
   return (
-    <main className="mx-auto max-w-[720px]">
+    <main className="mx-auto max-w-[1080px]">
       {/* Top bar */}
       <CollapsibleHeader
   brand="萬事屋"

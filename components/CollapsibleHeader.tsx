@@ -17,7 +17,7 @@ export default function CollapsibleHeader({
     { label: "網店", bg: "bg-orange-500" },
     { label: "其他", bg: "bg-emerald-500" },
   ],
-  tabs = ["首頁", "熱門", "最新"],
+  tabs = ["最新", "熱門"],
   activeFeature = "首頁", // 👈 新增
 }: {
   brand?: string
