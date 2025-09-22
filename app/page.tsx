@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import { createServerClient } from "@supabase/ssr"
 import CollapsibleHeader from "@/components/CollapsibleHeader"
 
+type CatKey = "startup" | "shop" | "service" | "other"
+
 // 先用靜態資料；之後你可改成從資料庫抓（見下方註解）
 const CATEGORIES = [
   { slug: "snacks",    name: "零食點心",    desc: "餅乾、糖果、堅果",    bg: "from-amber-400 to-red-500",   emoji: "🍪" },
@@ -25,9 +27,7 @@ async function getServerSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return jar.getAll()
-        },
+        getAll() { return jar.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             jar.set({ name, value, ...options })
@@ -41,28 +41,36 @@ async function getServerSupabase() {
 export default async function Home() {
   const supabase = await getServerSupabase()
 
+  // 1) 讀取商戶清單（原本的）
   const { data: merchants, error } = await supabase
     .from("merchants")
     .select("slug, name")
     .eq("is_public", true)
     .order("created_at", { ascending: true })
-
   if (error) console.error("merchants query error:", error)
+
+  // 2) 讀取各分類公開商戶數，生成 counts 物件
+  const { data: countRows, error: countErr } = await supabase
+    .from("merchants")
+    .select("category, count:count()", { head: false })
+    .eq("is_public", true)
+    .returns<{ category: CatKey | null; count: number }[]>()
+  if (countErr) console.error("category counts error:", countErr)
+
+  const counts = (countRows ?? []).reduce<Record<CatKey, number>>((acc, row) => {
+    const key = (row.category ?? "other") as CatKey
+    acc[key] = (acc[key] ?? 0) + Number(row.count || 0)
+    return acc
+  }, { startup: 0, shop: 0, service: 0, other: 0 })
 
   return (
     <main className="mx-auto max-w-[720px]">
-      {/* Top bar */}
       <CollapsibleHeader
-  brand="萬事屋"
-  handle="@yorozuya"
-  // features、tabs 不傳就用預設，也可自行覆蓋：
-  // features={[
-  //   { label: "首頁", bg: "bg-red-500" },
-  //   { label: "初創", bg: "bg-pink-500" },
-  //   ...
-  // ]}
-  // tabs={["首頁", "熱門", "最新"]}
-/>
+        brand="萬事屋"
+        handle="@yorozuya"
+        activeFeature="首頁"
+        categoryCounts={counts}   // ✅ 把四大類數字傳進去
+      />
 
       {/* Banner 區塊 */}
       <section className="px-4 pt-4">
@@ -108,15 +116,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 登入 / 後台捷徑 
-      <section className="px-4 pb-24">
-        <div className="flex gap-3">
-          <Link href="/login" className="px-3 py-2 border rounded-xl active:scale-95">登入</Link>
-          <Link href="/dashboard" className="px-3 py-2 border rounded-xl active:scale-95">後台</Link>
-        </div>
-      </section>*/}
-
-        {/* 分類卡片網格 */}
+      {/* 分類卡片網格 */}
       <section className="px-4 py-4 pb-24">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {CATEGORIES.map((c) => (
@@ -138,7 +138,6 @@ export default async function Home() {
           ))}
         </div>
       </section>
-
     </main>
   )
 }
