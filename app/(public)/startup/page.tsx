@@ -8,20 +8,15 @@ export const dynamic = "force-dynamic"
 
 export default async function StartupPage() {
   const supabase = await getSb()
-  type MerchantRow = {
-  slug: string
-  name: string
-  profile_picture_url: string | null
-}
+
   // 取得「公開 & 類別 = startup」的租戶
   const { data: merchants, error } = await supabase
     .from("merchants")
-    .select("slug, name, profile_picture_url")
+    .select("slug, name")
     .eq("is_public", true)
     .eq("category", "startup")
     .order("created_at", { ascending: true })
     .order("name", { ascending: true, nullsFirst: false })
-    .returns<MerchantRow[]>()
 
   if (error) console.error("startup merchants error:", error)
 
@@ -42,18 +37,9 @@ export default async function StartupPage() {
                  href={`/shop/${m.slug}?from=startup`}
                  className="group overflow-hidden rounded-2xl border bg-white p-3 shadow-sm active:scale-[0.98]"
                 >
-              <div className="h-20 w-full rounded-xl bg-gray-100 grid place-items-center overflow-hidden">
-  {m.profile_picture_url ? (
-    <img
-      src={m.profile_picture_url}
-      alt={`${m.name} icon`}
-      className="h-full w-full object-cover"
-      loading="lazy"
-    />
-  ) : (
-    <User size={24} className="text-gray-400" />
-  )}
-</div>
+                <div className="h-20 w-full rounded-xl bg-gray-100 grid place-items-center text-gray-400 text-xs">
+                  封面
+                </div>
                 <div className="mt-2 line-clamp-1 font-semibold group-hover:underline">
                   {m.name}
                 </div>

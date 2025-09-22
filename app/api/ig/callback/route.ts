@@ -63,9 +63,9 @@ export async function GET(req: Request) {
   const tokenExpiresAt =
     j2.expires_in ? new Date(Date.now() + Number(j2.expires_in) * 1000).toISOString() : null
 
-  // 3) me（包含 profile_picture_url）
+  // 3) me
   const rMe = await fetch(
-    `https://graph.instagram.com/me?fields=id,username,profile_picture_url&access_token=${encodeURIComponent(longToken)}`
+    `https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(longToken)}`
   )
   const me: any = await rMe.json().catch(() => ({}))
   if (!rMe.ok || !me.id) {
@@ -75,32 +75,15 @@ export async function GET(req: Request) {
     )
   }
 
-  // 4) 使用者 session + 會員預檢 + upsert ig_account
+  // 4) DB upsert（用使用者 Session + RLS）
   const supabase = await getServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    const login = new URL('/login', url.origin)
-    login.searchParams.set('redirect', url.pathname + url.search)
-    return NextResponse.redirect(login, { status: 302 })
-  }
-
-  const m = merchant.trim().toLowerCase()
-
-  const { data: isMember, error: rpcErr } = await supabase.rpc('is_member_text', { p_merchant_id: m })
-  if (rpcErr) return NextResponse.json({ error: 'precheck_failed', detail: rpcErr.message }, { status: 500 })
-  if (!isMember) {
-    return NextResponse.json({ error: 'forbidden', detail: `not a member of ${m}`, extra: { user_id: user.id } }, { status: 403 })
-  }
-
-  // 只 upsert 到 ig_account（包含 profile_picture_url），不更新 merchants
-  const { error: upErr } = await supabase
+  const { error: upsertErr } = await supabase
     .from('ig_account')
     .upsert(
       {
-        merchant_slug: m,
+        merchant_slug: merchant,
         ig_user_id: me.id,
         ig_username: me.username ?? null,
-        profile_picture_url: me.profile_picture_url ?? null,
         access_token: longToken,
         token_expires_at: tokenExpiresAt,
         updated_at: new Date().toISOString(),
@@ -108,19 +91,16 @@ export async function GET(req: Request) {
       { onConflict: 'merchant_slug' }
     )
 
-  if (upErr) {
-    return NextResponse.json({ error: 'db_upsert_failed', detail: upErr.message }, { status: 500 })
+  if (upsertErr) {
+    return NextResponse.json({ error: 'db_upsert_failed', detail: upsertErr.message }, { status: 500 })
   }
 
   if (debug) {
-    return NextResponse.json({
-      ok: true,
-      merchant: m,
-      me,
-      token_expires_at: tokenExpiresAt,
-      ig_account_updated: true,
-    })
+    return NextResponse.json({ ok: true, merchant, me, token_expires_at: tokenExpiresAt })
   }
 
-  return NextResponse.redirect(new URL(`/dashboard?merchant=${m}&connected=1`, url.origin), { status: 302 })
+  return NextResponse.redirect(
+    new URL(`/dashboard?merchant=${merchant}&connected=1`, url.origin),
+    { status: 302 }
+  )
 }
