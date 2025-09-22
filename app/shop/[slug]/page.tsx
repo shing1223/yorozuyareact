@@ -39,8 +39,8 @@ export default async function ShopPage({
   const referer = headerList.get("referer") || ""
 
   // 來源判斷
-  let backHref = "/shop/categories"
-  let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"
+  let backHref = "/"
+  let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "首頁"
 
   if (from === "startup" || referer.includes("/startup")) {
     backHref = "/startup"
