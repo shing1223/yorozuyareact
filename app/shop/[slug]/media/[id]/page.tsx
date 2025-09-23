@@ -72,8 +72,8 @@ export default async function MediaDetail({
   const headerList = await headers()          // ✅ await headers()
   const referer = headerList.get("referer") || ""
 
-  let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "網店"
-  let fromKey: "startup" | "service" | "shop" = "shop"
+  let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "首頁"
+  let fromKey: "startup" | "service" | "shop" | "" = ""
 
   if (from === "startup" || referer.includes("/startup")) {
     activeFeature = "初創"
