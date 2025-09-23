@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ShoppingCart, Menu, ChevronLeft } from "lucide-react"
+import NavDrawer from "@/components/NavDrawer"
 
 const FEATURE_COLORS_BG: Record<string, string> = {
   首頁: "bg-red-500",
@@ -104,9 +105,8 @@ export default function DetailAppHeader({
          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <ShoppingCart size={20} />
           </Link>
-          <button aria-label="選單" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Menu size={22} />
-          </button>
+            <NavDrawer activeFeature={activeFeature} />
+
         </div>
       </div>
 

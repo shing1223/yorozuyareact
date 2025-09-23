@@ -29,24 +29,49 @@ export default async function Home() {
     <main className="mx-auto max-w-[1080px]">
       <CollapsibleHeader brand="萬事屋" handle="@yorozuya" />
 
-      {/* Banner 區塊 */}
-      <section className="px-4 pt-4">
-        <div className="relative overflow-hidden rounded-2xl border bg-[#f6a400]">
-          <div className="grid place-items-center p-6 sm:aspect-[16/9]">
-            <div className="text-center">
-              <div className="mx-auto mb-3 inline-block rounded-full border-2 border-red-700 px-4 py-2 text-lg font-extrabold text-red-800">
-                本週推薦
-              </div>
-              <h3 className="text-white text-xl font-black tracking-wide">
-                <br />BAPRE Store
-              </h3>
-              <p className="mt-3 max-w-xs text-white/90 text-sm">
-                Spread Mid-Autumn good wishes. Save thousands of mooncakes from going to landfill.
-              </p>
+      {/* 滾動橫幅 BANNER */}
+<section className="px-4 pt-4">
+  <div className="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+    {[
+      {
+        title: "本週推薦",
+        name: "BAPRE Store",
+        desc: "Spread Mid-Autumn good wishes. Save thousands of mooncakes from going to landfill.",
+        bg: "bg-[#f6a400]",
+      },
+      {
+        title: "人氣商戶",
+        name: "My Second Shop",
+        desc: "New startup brand bringing fresh ideas to the market.",
+        bg: "bg-blue-500",
+      },
+      {
+        title: "最新加入",
+        name: "Demo Shop",
+        desc: "Just launched – check out our exciting products!",
+        bg: "bg-emerald-500",
+      },
+    ].map((b, i) => (
+      <div
+        key={i}
+        className={`relative shrink-0 w-[85%] sm:w-[70%] snap-start overflow-hidden rounded-2xl border ${b.bg}`}
+      >
+        <div className="grid place-items-center p-6 aspect-[16/9]">
+          <div className="text-center">
+            <div className="mx-auto mb-3 inline-block rounded-full border-2 border-white/80 px-4 py-1 text-sm font-extrabold text-white">
+              {b.title}
             </div>
+            <h3 className="text-white text-xl font-black tracking-wide">
+              <br />
+              {b.name}
+            </h3>
+            <p className="mt-3 max-w-xs text-white/90 text-sm">{b.desc}</p>
           </div>
         </div>
-      </section>
+      </div>
+    ))}
+  </div>
+</section>
 
       {/* 文章標題/說明 */}
       <section className="px-4 py-5">

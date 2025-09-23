@@ -201,8 +201,8 @@ function MediaCard({
               required
             >
               <option value="HKD">HKD</option>
-              {/* <option value="TWD">TWD</option>
-              <option value="USD">USD</option> */}
+               <option value="TWD">TWD</option>
+              <option value="USD">USD</option> 
             </select>
           </div>
 
@@ -214,7 +214,7 @@ function MediaCard({
         {/* 已設價格顯示 */}
         {product?.price != null && (
           <div className="text-xs text-gray-600">
-            目前售價：{product?.currency ?? 'TWD'} {Number(product?.price).toLocaleString()}
+            目前售價：{product?.currency ?? 'HKD'} {Number(product?.price).toLocaleString()}
           </div>
         )}
       </div>

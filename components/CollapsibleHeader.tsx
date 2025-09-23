@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ShoppingCart, Menu } from "lucide-react"
+import NavMenu from "@/components/NavMenu"
 
 type FeatureItem = { label: string; bg: string; badge?: string }
 
@@ -94,9 +95,7 @@ export default function CollapsibleHeader({
           <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <ShoppingCart size={20} />
           </Link>
-          <button aria-label="選單" className="p-2 -mr-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Menu size={22} />
-          </button>
+          <NavMenu />
         </div>
       </div>
 
