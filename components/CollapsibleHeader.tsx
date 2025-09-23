@@ -6,14 +6,14 @@ import Link from "next/link"
 import { ShoppingCart } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
 
-// 1) 統一型別
 export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "其他"
 type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
+
+type TabLabel = "最新" | "熱門"
 
 export default function CollapsibleHeader({
   brand = "萬事屋",
   handle = "@yorozuya",
-  // 2) 預設值使用 satisfies 讓 TS 檢查每個 label 都是 FeatureLabel
   features = [
     { label: "首頁", bg: "bg-red-500" },
     { label: "初創", bg: "bg-pink-500" },
@@ -22,13 +22,15 @@ export default function CollapsibleHeader({
     { label: "其他", bg: "bg-emerald-500" },
   ] satisfies FeatureItem[],
   tabs = ["最新", "熱門"],
-  activeFeature = "首頁", // 3) 用 FeatureLabel
+  activeFeature = "首頁",
+  activeTab = "最新",
 }: {
   brand?: string
   handle?: string
   features?: FeatureItem[]
-  tabs?: string[]
+  tabs?: TabLabel[]        // 只接受「最新 / 熱門」
   activeFeature?: FeatureLabel
+  activeTab?: TabLabel     // 目前啟用的分頁
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
   const [rowH, setRowH] = useState<number>(0)
@@ -64,7 +66,7 @@ export default function CollapsibleHeader({
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // 4) 路徑 map 也用 FeatureLabel
+  // 功能格路徑
   const routes: Record<FeatureLabel, string> = {
     首頁: "/",
     初創: "/startup",
@@ -73,7 +75,12 @@ export default function CollapsibleHeader({
     其他: "#",
   }
 
-  // 5) 以 activeFeature 取色
+  // Tabs 路徑（你可以改成別的 URL 結構）
+  const tabRoutes: Record<TabLabel, string> = {
+    最新: "/",
+    熱門: "/hot",
+  }
+
   const active = features.find((f) => f.label === activeFeature)
   const activeBg = active?.bg ?? "bg-red-500"
 
@@ -92,14 +99,9 @@ export default function CollapsibleHeader({
           <span className="text-xs text-gray-500">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/cart"
-            aria-label="購物車"
-            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95"
-          >
+          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <ShoppingCart size={20} />
           </Link>
-          {/* 6) 這裡型別一致，不會再報錯 */}
           <NavDrawer activeFeature={activeFeature} />
         </div>
       </div>
@@ -127,7 +129,7 @@ export default function CollapsibleHeader({
                   className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative flex items-center justify-center`}
                 >
                   {it.label}
-                  {it.badge && (
+                  {"badge" in it && it.badge && (
                     <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
                       {it.badge}
                     </span>
@@ -139,7 +141,7 @@ export default function CollapsibleHeader({
                   className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative`}
                 >
                   {it.label}
-                  {it.badge && (
+                  {"badge" in it && it.badge && (
                     <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
                       {it.badge}
                     </span>
@@ -151,23 +153,28 @@ export default function CollapsibleHeader({
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs → Link + active 樣式 */}
       <nav className="px-2 border-b">
-        <ul className="grid grid-cols-3 text-center">
-          {tabs.map((t, i) => (
-            <li key={t} className="relative">
-              <button
-                className={`w-full py-3 text-sm font-semibold ${
-                  i === 0 ? "text-gray-900" : "text-gray-500"
-                }`}
-              >
-                {t}
-              </button>
-              {i === 0 && (
-                <div className={`absolute bottom-0 left-3 right-3 h-[3px] rounded-full ${activeBg}`} />
-              )}
-            </li>
-          ))}
+        <ul className="grid grid-cols-2 text-center">
+          {tabs.map((t) => {
+            const href = tabRoutes[t]
+            const isActive = t === activeTab
+            return (
+              <li key={t} className="relative">
+                <Link
+                  href={href}
+                  className={`block w-full py-3 text-sm font-semibold ${
+                    isActive ? "text-gray-900" : "text-gray-500"
+                  }`}
+                >
+                  {t}
+                </Link>
+                {isActive && (
+                  <div className={`absolute bottom-0 left-3 right-3 h-[3px] rounded-full ${activeBg}`} />
+                )}
+              </li>
+            )
+          })}
         </ul>
       </nav>
     </header>

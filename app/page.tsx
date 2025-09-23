@@ -27,7 +27,13 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-[1080px]">
-      <CollapsibleHeader brand="萬事屋" handle="@yorozuya" />
+      <CollapsibleHeader
+  brand="萬事屋"
+  handle="@yorozuya"
+  activeFeature="首頁"
+  activeTab="最新"
+  tabs={["最新", "熱門"]}
+/>
 
       {/* 滾動橫幅 BANNER */}
 <section className="px-4 pt-4">
