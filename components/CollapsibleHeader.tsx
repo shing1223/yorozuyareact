@@ -3,29 +3,32 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ShoppingCart, Menu } from "lucide-react"
-import NavMenu from "@/components/NavMenu"
+import { ShoppingCart } from "lucide-react"
+import NavDrawer from "@/components/NavDrawer"
 
-type FeatureItem = { label: string; bg: string; badge?: string }
+// 1) 統一型別
+export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "其他"
+type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
 
 export default function CollapsibleHeader({
   brand = "萬事屋",
   handle = "@yorozuya",
+  // 2) 預設值使用 satisfies 讓 TS 檢查每個 label 都是 FeatureLabel
   features = [
     { label: "首頁", bg: "bg-red-500" },
     { label: "初創", bg: "bg-pink-500" },
     { label: "服務", bg: "bg-blue-500" },
     { label: "網店", bg: "bg-orange-500" },
     { label: "其他", bg: "bg-emerald-500" },
-  ],
+  ] satisfies FeatureItem[],
   tabs = ["最新", "熱門"],
-  activeFeature = "首頁", // 👈 新增
+  activeFeature = "首頁", // 3) 用 FeatureLabel
 }: {
   brand?: string
   handle?: string
   features?: FeatureItem[]
   tabs?: string[]
-  activeFeature?: string
+  activeFeature?: FeatureLabel
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
   const [rowH, setRowH] = useState<number>(0)
@@ -61,15 +64,16 @@ export default function CollapsibleHeader({
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // 定義跳轉路徑
-  const routes: Record<string, string> = {
+  // 4) 路徑 map 也用 FeatureLabel
+  const routes: Record<FeatureLabel, string> = {
     首頁: "/",
     初創: "/startup",
     服務: "/service",
     網店: "/shop/categories",
+    其他: "#",
   }
 
-  // 取得目前 active feature 的顏色
+  // 5) 以 activeFeature 取色
   const active = features.find((f) => f.label === activeFeature)
   const activeBg = active?.bg ?? "bg-red-500"
 
@@ -82,20 +86,21 @@ export default function CollapsibleHeader({
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-baseline gap-1">
           <span className="text-[28px] leading-none font-extrabold tracking-tight">
-            {/* 左上角小色塊用 activeFeature 顏色 */}
-            <span
-              className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`}
-            />
+            <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
             {brand}
           </span>
           <span className="text-xs text-gray-500">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
-          
-          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+          <Link
+            href="/cart"
+            aria-label="購物車"
+            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95"
+          >
             <ShoppingCart size={20} />
           </Link>
-          <NavMenu />
+          {/* 6) 這裡型別一致，不會再報錯 */}
+          <NavDrawer activeFeature={activeFeature} />
         </div>
       </div>
 
@@ -159,7 +164,6 @@ export default function CollapsibleHeader({
                 {t}
               </button>
               {i === 0 && (
-                // ✅ 底線顏色也用 activeFeature 的顏色
                 <div className={`absolute bottom-0 left-3 right-3 h-[3px] rounded-full ${activeBg}`} />
               )}
             </li>

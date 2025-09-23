@@ -3,10 +3,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ShoppingCart, Menu } from "lucide-react"
+import { ShoppingCart } from "lucide-react"
+import NavDrawer from "@/components/NavDrawer"
 
-type FeatureItem = { label: string; bg: string; badge?: string }
+// ① 統一型別
+export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "其他"
+type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
 
+// ② 常數用 satisfies 讓 TS 檢查
 const FEATURES: FeatureItem[] = [
   { label: "首頁", bg: "bg-red-500" },
   { label: "初創", bg: "bg-pink-500" },
@@ -15,22 +19,23 @@ const FEATURES: FeatureItem[] = [
   { label: "其他", bg: "bg-emerald-500" },
 ]
 
-// 對應路徑
-const routes: Record<string, string> = {
+// ③ 路由映射也用相同型別
+const routes: Record<FeatureLabel, string> = {
   首頁: "/",
   初創: "/startup",
   服務: "/service",
   網店: "/shop/categories",
+  其他: "#",
 }
 
 export default function AppHeader({
   brand = "萬事屋",
   handle = "@yorozuya",
-  activeFeature = "首頁", // 👈 新增參數，決定哪個 feature 被啟用
+  activeFeature = "首頁", // ④ 使用 FeatureLabel
 }: {
   brand?: string
   handle?: string
-  activeFeature?: string
+  activeFeature?: FeatureLabel
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
   const [rowH, setRowH] = useState(0)
@@ -81,20 +86,21 @@ export default function AppHeader({
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-baseline gap-1">
           <span className="text-[28px] leading-none font-extrabold tracking-tight">
-            {/* ✅ 動態套用 activeFeature 的顏色 */}
             <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
             {brand}
           </span>
           <span className="text-xs text-gray-500">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
-          
-          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+          <Link
+            href="/cart"
+            aria-label="購物車"
+            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95"
+          >
             <ShoppingCart size={20} />
           </Link>
-          <button aria-label="選單" className="p-2 -mr-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Menu size={22} />
-          </button>
+          {/* ⑤ 與 NavDrawer 型別一致 */}
+          <NavDrawer activeFeature={activeFeature} />
         </div>
       </div>
 
@@ -144,7 +150,6 @@ export default function AppHeader({
           </div>
         </div>
       </div>
-
     </header>
   )
 }

@@ -105,7 +105,7 @@ export default function DetailAppHeader({
          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <ShoppingCart size={20} />
           </Link>
-            <NavDrawer activeFeature={activeFeature} />
+          <NavDrawer activeFeature={activeFeature} />
 
         </div>
       </div>
