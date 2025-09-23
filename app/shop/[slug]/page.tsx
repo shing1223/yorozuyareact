@@ -86,7 +86,7 @@ export default async function ShopPage({
                   ? "startup"
                   : activeFeature === "服務"
                   ? "service"
-                  : "shop")
+                  : "")
               return (
                 <Link
                   key={m.ig_media_id}
