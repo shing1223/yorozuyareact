@@ -3,7 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Bell, Mail, Menu } from "lucide-react"
+import { ShoppingCart, Menu } from "lucide-react"
 
 type FeatureItem = { label: string; bg: string; badge?: string }
 
@@ -88,12 +88,10 @@ export default function AppHeader({
           <span className="text-xs text-gray-500">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="通知" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Bell size={20} />
-          </button>
-          <button aria-label="訊息" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Mail size={20} />
-          </button>
+          
+          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+            <ShoppingCart size={20} />
+          </Link>
           <button aria-label="選單" className="p-2 -mr-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <Menu size={22} />
           </button>

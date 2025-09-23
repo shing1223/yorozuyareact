@@ -3,7 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Bell, Mail, Menu, ChevronLeft } from "lucide-react"
+import { ShoppingCart, Menu, ChevronLeft } from "lucide-react"
 
 const FEATURE_COLORS_BG: Record<string, string> = {
   首頁: "bg-red-500",
@@ -100,12 +100,10 @@ export default function DetailAppHeader({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 pr-1 sm:pr-0">
-          <button aria-label="通知" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Bell size={20} />
-          </button>
-          <button aria-label="訊息" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
-            <Mail size={20} />
-          </button>
+          
+         <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+            <ShoppingCart size={20} />
+          </Link>
           <button aria-label="選單" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
             <Menu size={22} />
           </button>
