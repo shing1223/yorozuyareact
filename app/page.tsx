@@ -2,6 +2,7 @@
 import Link from "next/link"
 import CollapsibleHeader from "@/components/CollapsibleHeader"
 import { getSb } from "@/lib/supabaseServer"
+import DragScroll from "@/components/DragScroll"
 
 export const dynamic = "force-dynamic"
 
@@ -35,9 +36,10 @@ export default async function Home() {
   tabs={["最新", "熱門"]}
 />
 
-      {/* 滾動橫幅 BANNER */}
+
+{/* 滾動橫幅 BANNER（可拖曳 + 觸控） */}
 <section className="px-4 pt-4">
-  <div className="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+  <DragScroll className="snap-x snap-mandatory pb-1" /* 拖曳時會自動變 snap-none */>
     {[
       {
         title: "本週推薦",
@@ -76,7 +78,7 @@ export default async function Home() {
         </div>
       </div>
     ))}
-  </div>
+  </DragScroll>
 </section>
 
       {/* 文章標題/說明 */}
