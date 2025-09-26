@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import RouteProgress from "@/components/RouteProgress"
+import { Suspense } from "react"          // ← 新增
 
 export const metadata: Metadata = {
   title: "IG 精選平台",
@@ -11,16 +12,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover", // iOS 安全區
+  viewportFit: "cover",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-Hant">
       <body className="min-h-screen bg-white text-gray-900 antialiased">
-        {/* 全站容器：底部導覽留白（含安全區） */}
         <div className="min-h-[100dvh] pb-[64px]" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))" }}>
-          <RouteProgress />
+          <Suspense fallback={null}>
+            <RouteProgress />
+          </Suspense>
           {children}
         </div>
       </body>
