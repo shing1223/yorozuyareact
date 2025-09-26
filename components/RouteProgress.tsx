@@ -15,7 +15,7 @@ export default function RouteProgress() {
     setLoading(true)
     // 結束（下一幀 + 小延遲，讓動畫有時間播放）
     if (timerRef.current) window.clearTimeout(timerRef.current)
-    timerRef.current = window.setTimeout(() => setLoading(false), 400)
+    timerRef.current = window.setTimeout(() => setLoading(false), 100)
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current)
     }
