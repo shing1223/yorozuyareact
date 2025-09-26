@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
+import RouteProgress from "@/components/RouteProgress"
 
 export const metadata: Metadata = {
   title: "IG 精選平台",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-white text-gray-900 antialiased">
         {/* 全站容器：底部導覽留白（含安全區） */}
         <div className="min-h-[100dvh] pb-[64px]" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))" }}>
+          <RouteProgress />
           {children}
         </div>
       </body>
