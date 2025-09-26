@@ -41,12 +41,12 @@ export default async function Home() {
   <DragScroll className="snap-x snap-mandatory pb-1">
     {[
       {
-        title: "本週推薦",
-        name: "Store",
+        title: "助你一臂之力",
+        name: "",
         desc: "",
         bg: "bg-[#f6a400]",
-        img: "/images/banner1.png",     // ✅ 正確：從 public/ 讀取用「/images/...」
-        href: "/shop/bapre.store",
+        img: "/images/banner1.png",
+        href: "#",
       },
       {
         title: "人氣商戶",
@@ -74,7 +74,7 @@ export default async function Home() {
         <img
           src={b.img}
           alt={b.name}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-contain"
           loading="lazy"
         />
 
