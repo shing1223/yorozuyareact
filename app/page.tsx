@@ -79,7 +79,7 @@ export default async function Home() {
         />
 
         {/* 半透明遮罩，讓文字更清楚 */}
-        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 bg-white/25" />
 
         {/* 內容層 */}
         <div className="relative grid place-items-center p-6 aspect-[16/9]">
