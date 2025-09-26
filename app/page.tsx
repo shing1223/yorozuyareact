@@ -36,47 +36,62 @@ export default async function Home() {
   tabs={["最新", "熱門"]}
 />
 
-
 {/* 滾動橫幅 BANNER（可拖曳 + 觸控） */}
 <section className="px-4 pt-4">
-  <DragScroll className="snap-x snap-mandatory pb-1" /* 拖曳時會自動變 snap-none */>
+  <DragScroll className="snap-x snap-mandatory pb-1">
     {[
       {
         title: "本週推薦",
-        name: "BAPRE Store",
-        desc: "Spread Mid-Autumn good wishes. Save thousands of mooncakes from going to landfill.",
+        name: "Store",
+        desc: "",
         bg: "bg-[#f6a400]",
+        img: "/images/banner1.png",     // ✅ 正確：從 public/ 讀取用「/images/...」
+        href: "/shop/bapre.store",
       },
       {
         title: "人氣商戶",
         name: "My Second Shop",
         desc: "New startup brand bringing fresh ideas to the market.",
         bg: "bg-blue-500",
+        img: "/images/banner1.png",
+        href: "/shop/mysecondshop",
       },
       {
         title: "最新加入",
         name: "Demo Shop",
         desc: "Just launched – check out our exciting products!",
         bg: "bg-emerald-500",
+        img: "/images/banner1.png",
+        href: "/shop/demo",
       },
     ].map((b, i) => (
-      <div
+      <Link
         key={i}
+        href={b.href}
         className={`relative shrink-0 w-[85%] sm:w-[70%] snap-start overflow-hidden rounded-2xl border ${b.bg}`}
       >
-        <div className="grid place-items-center p-6 aspect-[16/9]">
+        {/* 背景圖 */}
+        <img
+          src={b.img}
+          alt={b.name}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+        />
+
+        {/* 半透明遮罩，讓文字更清楚 */}
+        <div className="absolute inset-0 bg-black/25" />
+
+        {/* 內容層 */}
+        <div className="relative grid place-items-center p-6 aspect-[16/9]">
           <div className="text-center">
             <div className="mx-auto mb-3 inline-block rounded-full border-2 border-white/80 px-4 py-1 text-sm font-extrabold text-white">
               {b.title}
             </div>
-            <h3 className="text-white text-xl font-black tracking-wide">
-              <br />
-              {b.name}
-            </h3>
+            <h3 className="text-white text-xl font-black tracking-wide">{b.name}</h3>
             <p className="mt-3 max-w-xs text-white/90 text-sm">{b.desc}</p>
           </div>
         </div>
-      </div>
+      </Link>
     ))}
   </DragScroll>
 </section>
