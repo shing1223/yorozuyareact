@@ -84,9 +84,7 @@ export default async function Home() {
         {/* 內容層 */}
         <div className="relative grid place-items-center p-6 aspect-[16/9]">
           <div className="text-center">
-            <div className="mx-auto mb-3 inline-block rounded-full border-2 border-white/80 px-4 py-1 text-sm font-extrabold text-white">
-              {b.title}
-            </div>
+      
             <h3 className="text-white text-xl font-black tracking-wide">{b.name}</h3>
             <p className="mt-3 max-w-xs text-white/90 text-sm">{b.desc}</p>
           </div>
