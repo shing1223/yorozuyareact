@@ -76,6 +76,7 @@ export default async function Home() {
           alt={b.name}
           className="absolute inset-0 h-full w-full object-contain"
           loading="lazy"
+          draggable={false}
         />
 
         {/* 半透明遮罩，讓文字更清楚 */}
