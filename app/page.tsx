@@ -38,8 +38,7 @@ export default async function Home() {
 
 {/* 滾動橫幅 BANNER（可拖曳 + 觸控） */}
 <section className="px-4 pt-4">
-  {/* proximity 比 mandatory 自然；拖曳時 DragScroll 會暫時關閉 snap */}
-  <DragScroll className="snap-x snap-proximity pb-1">
+  <DragScroll className="snap-x snap-mandatory pb-1">
     {[
       {
         title: "助你一臂之力",
@@ -71,36 +70,25 @@ export default async function Home() {
         href={b.href}
         className={`relative shrink-0 w-[85%] sm:w-[70%] snap-start overflow-hidden rounded-2xl border ${b.bg}`}
       >
-        {/* 背景圖：不攔截指標事件，拖曳順暢 */}
+        {/* 背景圖 */}
         <img
           src={b.img}
-          alt={b.name || b.title}
-          className="absolute inset-0 h-full w-full object-contain pointer-events-none select-none"
+          alt={b.name}
+          className="absolute inset-0 h-full w-full object-contain"
           loading="lazy"
           draggable={false}
+          pointer-events-none
         />
 
-        {/* 覆蓋層：用深色漸層 + 不攔截事件 */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/40 via-black/20 to-transparent" />
+        {/* 半透明遮罩，讓文字更清楚 */}
+        <div className="absolute inset-0 bg-white/25" />
 
         {/* 內容層 */}
         <div className="relative grid place-items-center p-6 aspect-[16/9]">
           <div className="text-center">
-            {b.title && (
-              <div className="mx-auto mb-3 inline-block rounded-full border-2 border-white/80 px-4 py-1 text-sm font-extrabold text-white">
-                {b.title}
-              </div>
-            )}
-            {b.name && (
-              <h3 className="text-white text-xl font-black tracking-wide">
-                {b.name}
-              </h3>
-            )}
-            {b.desc && (
-              <p className="mt-3 max-w-xs text-white/90 text-sm mx-auto">
-                {b.desc}
-              </p>
-            )}
+      
+            <h3 className="text-white text-xl font-black tracking-wide">{b.name}</h3>
+            <p className="mt-3 max-w-xs text-white/90 text-sm">{b.desc}</p>
           </div>
         </div>
       </Link>
