@@ -77,7 +77,6 @@ export default async function Home() {
           className="absolute inset-0 h-full w-full object-contain"
           loading="lazy"
           draggable={false}
-          pointer-events-none
         />
 
         {/* 半透明遮罩，讓文字更清楚 */}
