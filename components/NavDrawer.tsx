@@ -115,14 +115,10 @@ export default function NavDrawer({
                 </Section>
 
                 <Section title="功能">
-                  <NavItem href="/rewards" icon={Gift} label="獎賞" />
+                  {/*<NavItem href="/rewards" icon={Gift} label="獎賞" />*/}
                   <NavItem href="/cart" icon={ShoppingCart} label="購物車" />
                 </Section>
 
-                <Section title="管理">
-                  <NavItem href="/login" icon={LogIn} label="登入" />
-                  <NavItem href="/dashboard" icon={LayoutDashboard} label="後台" />
-                </Section>
               </nav>
             </div>
 
