@@ -6,9 +6,7 @@ import clsx from "clsx"
 
 type Props = HTMLAttributes<HTMLDivElement> & {
   disableSnapWhileDragging?: boolean
-  // 是否在「拖過門檻」時攔截 click（預設開啟）
   suppressClickOnDrag?: boolean
-  // 多少像素視為拖曳（避免微小抖動誤判）
   dragThresholdPx?: number
 }
 
@@ -21,55 +19,76 @@ export default function DragScroll({
   ...rest
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null)
-  const [dragging, setDragging] = useState(false)
+  const [draggingX, setDraggingX] = useState(false) // 只有「水平拖曳中」才為 true
+  const isDown = useRef(false)
   const startX = useRef(0)
+  const startY = useRef(0)
   const startScroll = useRef(0)
-  const moved = useRef(false) // 是否已超過門檻
   const pointerIdRef = useRef<number | null>(null)
+  const movedHoriz = useRef(false) // 用來抑制 click（只在水平拖曳成立時）
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const el = ref.current
     if (!el) return
-    setDragging(true)
-    moved.current = false
+    isDown.current = true
+    setDraggingX(false)
+    movedHoriz.current = false
     startX.current = e.clientX
+    startY.current = e.clientY
     startScroll.current = el.scrollLeft
     pointerIdRef.current = e.pointerId
-    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    // 不要立刻 setPointerCapture；等確定是水平拖曳再抓
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!dragging) return
+    if (!isDown.current) return
     const el = ref.current
     if (!el) return
+
     const dx = e.clientX - startX.current
-    if (Math.abs(dx) >= dragThresholdPx) {
-      moved.current = true
+    const dy = e.clientY - startY.current
+
+    // 尚未決定方向：判定使用者意圖
+    if (!draggingX) {
+      // 使用者往下/上滑而且幅度大於橫向 → 讓瀏覽器處理（不 preventDefault）
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) >= 4) {
+        // 放棄水平拖曳判定
+        return
+      }
+      // 橫向超過門檻，且大於縱向 → 啟動水平拖曳
+      if (Math.abs(dx) >= dragThresholdPx && Math.abs(dx) > Math.abs(dy)) {
+        setDraggingX(true)
+        movedHoriz.current = true
+        ;(e.target as Element).setPointerCapture?.(e.pointerId)
+      } else {
+        return
+      }
     }
+
+    // 已在水平拖曳：更新 scroll，阻止預設避免頁面跟著動
     el.scrollLeft = startScroll.current - dx
-    e.preventDefault() // 避免選字/觸發其他手勢
+    e.preventDefault()
   }
 
   const finishPointer = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    setDragging(false)
-    // 釋放指標捕捉
+    isDown.current = false
+    // 釋放指標捕捉（若有）
     if (pointerIdRef.current != null) {
       ;(e.target as Element).releasePointerCapture?.(pointerIdRef.current)
       pointerIdRef.current = null
     }
-    // 注意：不要立刻清掉 moved.current，因為 click 會在 pointerup 之後觸發
-    // 延遲清空，讓 onClickCapture 有機會判斷
+    // 拖曳結束後稍微保留 movedHoriz 用於攔截隨後的 click
     setTimeout(() => {
-      moved.current = false
+      movedHoriz.current = false
     }, 80)
+    setDraggingX(false)
   }, [])
 
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => finishPointer(e)
   const onPointerCancel = (e: PointerEvent<HTMLDivElement>) => finishPointer(e)
 
   const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    // 若剛剛有拖曳過門檻，就攔截這次 click，避免 Link 導覽
-    if (suppressClickOnDrag && moved.current) {
+    if (suppressClickOnDrag && movedHoriz.current) {
       e.preventDefault()
       e.stopPropagation()
     }
@@ -83,12 +102,12 @@ export default function DragScroll({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
       onClickCapture={onClickCapture}
-      // touch-action 設為 pan-y，讓垂直滾動交給瀏覽器、水平由我們處理
+      // 僅宣告 pan-y：讓瀏覽器自由處理縱向滾動；我們只在「已判定為水平拖曳」時阻止預設
       style={{ touchAction: "pan-y" }}
       className={clsx(
         "flex gap-4 overflow-x-auto overflow-y-hidden no-scrollbar select-none",
-        dragging ? "cursor-grabbing" : "cursor-grab",
-        disableSnapWhileDragging ? (dragging ? "snap-none" : "") : "",
+        draggingX ? "cursor-grabbing" : "cursor-grab",
+        disableSnapWhileDragging ? (draggingX ? "snap-none" : "") : "",
         className
       )}
       {...rest}
