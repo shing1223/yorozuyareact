@@ -13,7 +13,7 @@ export default async function DreamDetailPage({ params }: Props) {
 
   const { data: dream, error } = await supabase
     .from("v_dreams_full")
-    .select("*")
+    .select("*, display_name")
     .eq("id", params.id)
     .maybeSingle()
 
@@ -28,6 +28,9 @@ export default async function DreamDetailPage({ params }: Props) {
       <section className="px-4 py-6 pb-24">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">夢想詳情</h2>
+          <p className="mt-1 text-xs text-gray-500">
+  發佈者：{dream.display_name ?? "匿名"}
+</p>
           <Link href="/dreams" className="text-sm text-gray-600 underline hover:text-gray-800">
             回到清單
           </Link>
