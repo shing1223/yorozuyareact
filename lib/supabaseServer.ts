@@ -3,26 +3,31 @@ import { cookies } from "next/headers"
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 
 /**
- * 取得「伺服器端」Supabase client（支援 RSC / Server Actions）
- * - 會自動把 Supabase 的 Set-Cookie 寫回 Next.js cookies()
+ * 伺服器端 Supabase Client（RSC / Server Actions / Route Handlers）
+ * - 使用「相容介面」cookies: { get / set / remove }
+ * - Next 15 下 cookies() 為 async，因此這裡使用 await
  */
 export async function getSb() {
-  const jar = await cookies()
+  const jar = await cookies() // Next 15 types: Promise<ReadonlyRequestCookies>
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // 千萬別放 service_role
     {
       cookies: {
-        // 供 Supabase 讀 cookie
-        getAll() {
-          return jar.getAll()
+        get(name: string) {
+          return jar.get(name)?.value
         },
-        // 供 Supabase 寫回 cookie（登入/刷新 token 用）
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            jar.set({ name, value, ...(options as CookieOptions) })
-          })
+        set(name: string, value: string, options: CookieOptions) {
+          // 在 RSC 場景有時不可寫，包 try 以避免 throw
+          try {
+            jar.set({ name, value, ...options })
+          } catch {}
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            jar.delete({ name, ...options })
+          } catch {}
         },
       },
     }
