@@ -141,7 +141,7 @@ const vote = async (next: 1 | -1) => {
           <div className="mt-1 whitespace-pre-wrap">{dream.hidden_content}</div>
         </div>
       ) : (
-        <div className="mt-3 text-xs text-gray-400">此夢想沒有隱藏內容</div>
+        <div className="mt-3 text-xs text-gray-400">成為投資者才可看到隱藏內容</div>
       )}
 
       <div className="mt-3 flex items-center gap-3">

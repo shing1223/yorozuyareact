@@ -9,10 +9,10 @@ export default async function DreamsPage() {
   const supabase = await getSb()
 
   const { data: dreams, error } = await supabase
-    .from("v_dreams_full")
+    .from("v_dreams_with_counts")
     .select("id, title, public_content, up_count, down_count, created_at")
-    .order("created_at", { ascending: false })
-    .limit(60)
+     .order("created_at", { ascending: false })
+     .limit(60)
 
   if (error) console.error("load dreams error:", error)
 
