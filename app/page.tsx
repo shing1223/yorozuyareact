@@ -72,11 +72,12 @@ export default async function Home() {
       >
         {/* 背景圖 */}
         <img
-          src={b.img}
-          alt={b.name}
-          className="absolute inset-0 h-full w-full object-contain"
-          loading="lazy"
-        />
+  src={b.img}
+  alt={b.name}
+  className="absolute inset-0 h-full w-full object-contain"
+  loading="lazy"
+  draggable={false}
+/>
 
         {/* 半透明遮罩，讓文字更清楚 */}
         <div className="absolute inset-0 bg-white/25" />
