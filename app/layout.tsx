@@ -7,7 +7,7 @@ import { Suspense } from "react"          // ← 新增
 export const metadata: Metadata = {
   title: "IG 精選平台",
   description: "以商戶為單位，公開展示在後台勾選的 Instagram 貼文",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.json",
   themeColor: "#ef4444",
   icons: {
     icon: "/icons/icon-192.png",
