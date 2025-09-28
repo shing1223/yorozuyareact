@@ -7,16 +7,16 @@ import { ShoppingCart } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
 
 // ① 統一型別
-export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "其他"
+export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "夢想"
 type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
 
 // ② 常數用 satisfies 讓 TS 檢查
 const FEATURES: FeatureItem[] = [
   { label: "首頁", bg: "bg-red-500" },
-  { label: "初創", bg: "bg-pink-500" },
-  { label: "服務", bg: "bg-blue-500" },
   { label: "網店", bg: "bg-orange-500" },
-  { label: "其他", bg: "bg-emerald-500" },
+  { label: "初創", bg: "bg-emerald-500" },
+  { label: "服務", bg: "bg-blue-500" },
+  { label: "夢想", bg: "bg-pink-500" },
 ]
 
 // ③ 路由映射也用相同型別
@@ -25,7 +25,7 @@ const routes: Record<FeatureLabel, string> = {
   初創: "/startup",
   服務: "/service",
   網店: "/shop/categories",
-  其他: "#",
+  夢想: "/dreams",
 }
 
 export default function AppHeader({

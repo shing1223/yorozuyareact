@@ -6,7 +6,7 @@ import Link from "next/link"
 import { ShoppingCart } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
 
-export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "其他"
+export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "夢想"
 type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
 
 type TabLabel = "最新" | "熱門"
@@ -16,10 +16,10 @@ export default function CollapsibleHeader({
   handle = "@yorozuya",
   features = [
     { label: "首頁", bg: "bg-red-500" },
-    { label: "初創", bg: "bg-pink-500" },
-    { label: "服務", bg: "bg-blue-500" },
     { label: "網店", bg: "bg-orange-500" },
-    { label: "其他", bg: "bg-emerald-500" },
+    { label: "初創", bg: "bg-emerald-500" },
+    { label: "服務", bg: "bg-blue-500" },
+    { label: "夢想", bg: "bg-pink-500" },
   ] satisfies FeatureItem[],
   tabs = ["最新", "熱門"],
   activeFeature = "首頁",
@@ -72,7 +72,7 @@ export default function CollapsibleHeader({
     初創: "/startup",
     服務: "/service",
     網店: "/shop/categories",
-    其他: "#",
+    夢想: "/dreams",
   }
 
   // Tabs 路徑（你可以改成別的 URL 結構）

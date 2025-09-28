@@ -32,7 +32,7 @@ export default function DetailAppHeader({
 }: {
   brand?: string
   handle?: string
-  activeFeature?: "首頁" | "初創" | "服務" | "網店" | "其他"
+  activeFeature?: "首頁" | "初創" | "服務" | "網店" | "夢想"
   backHref?: string
   showFeatureRow?: boolean
 }) {

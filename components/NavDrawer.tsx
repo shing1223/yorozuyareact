@@ -8,18 +8,19 @@ import { createPortal } from "react-dom"
 import type { LucideIcon } from "lucide-react"
 import {
   Menu, X, Home, Rocket, Wrench, Store, Gift, ShoppingCart, LogIn, LayoutDashboard,
+  CloudSunIcon,
 } from "lucide-react"
 
 const FEATURE_COLORS: Record<string, string> = {
   首頁: "bg-red-500",
-  初創: "bg-pink-500",
-  服務: "bg-blue-500",
   網店: "bg-orange-500",
-  其他: "bg-emerald-500",
+  初創: "bg-emerald-500",
+  服務: "bg-blue-500",
+  夢想: "bg-pink-500",
 }
 
 type Props = {
-  activeFeature?: "首頁" | "初創" | "服務" | "網店" | "其他"
+  activeFeature?: "首頁" | "初創" | "服務" | "網店" | "夢想"
   triggerClassName?: string
 }
 
@@ -109,9 +110,10 @@ export default function NavDrawer({
               <nav className="px-2 py-3">
                 <Section title="探索">
                   <NavItem href="/" icon={Home} label="首頁" />
+                  <NavItem href="/shop/categories" icon={Store} label="網店專區" />
                   <NavItem href="/startup" icon={Rocket} label="初創專區" />
                   <NavItem href="/service" icon={Wrench} label="服務專區" />
-                  <NavItem href="/shop/categories" icon={Store} label="網店專區" />
+                  <NavItem href="/dreams" icon={CloudSunIcon} label="我有一個夢想⋯" />
                 </Section>
 
                 <Section title="功能">
