@@ -7,6 +7,17 @@ import { Suspense } from "react"          // ← 新增
 export const metadata: Metadata = {
   title: "IG 精選平台",
   description: "以商戶為單位，公開展示在後台勾選的 Instagram 貼文",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#ef4444",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "IG 精選",
+  },
 }
 
 export const viewport: Viewport = {

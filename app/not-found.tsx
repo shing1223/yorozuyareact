@@ -1,10 +1,26 @@
-// app/not-found.tsx  (Server Component，無任何 useSearchParams)
+// app/404.tsx (或 app/not-found.tsx)
+"use client"
+
+import { Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+
+function NotFoundInner() {
+  const sp = useSearchParams()
+  const from = sp.get("from")
+  return (
+    <main className="mx-auto max-w-[1080px] p-6">
+      <h1 className="text-xl font-bold">找不到頁面</h1>
+      {from && <p className="text-sm text-gray-500">from: {from}</p>}
+      <Link href="/" className="text-blue-600 underline mt-4 inline-block">回首頁</Link>
+    </main>
+  )
+}
+
 export default function NotFound() {
   return (
-    <main className="mx-auto max-w-[720px] p-6">
-      <h1 className="text-2xl font-bold">找不到頁面</h1>
-      <p className="mt-2 text-gray-600">您要找的頁面不存在或已被移除。</p>
-      <a href="/" className="mt-4 inline-block text-blue-600 underline">回到首頁</a>
-    </main>
+    <Suspense fallback={null}>
+      <NotFoundInner />
+    </Suspense>
   )
 }
