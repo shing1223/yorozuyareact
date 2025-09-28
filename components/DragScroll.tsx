@@ -103,13 +103,7 @@ export default function DragScroll({
       onPointerCancel={onPointerCancel}
       onClickCapture={onClickCapture}
       // 僅宣告 pan-y：讓瀏覽器自由處理縱向滾動；我們只在「已判定為水平拖曳」時阻止預設
-      style={{ touchAction: "pan-y" }}
-      className={clsx(
-        "flex gap-4 overflow-x-auto overflow-y-hidden no-scrollbar select-none",
-        draggingX ? "cursor-grabbing" : "cursor-grab",
-        disableSnapWhileDragging ? (draggingX ? "snap-none" : "") : "",
-        className
-      )}
+    
       {...rest}
     >
       {children}
