@@ -19,76 +19,71 @@ export default function DragScroll({
   ...rest
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null)
-  const [draggingX, setDraggingX] = useState(false) // 只有「水平拖曳中」才為 true
+
+  // 僅用於「滑鼠」的拖曳
+  const [draggingMouse, setDraggingMouse] = useState(false)
   const isDown = useRef(false)
   const startX = useRef(0)
-  const startY = useRef(0)
   const startScroll = useRef(0)
+  const movedHoriz = useRef(false)
   const pointerIdRef = useRef<number | null>(null)
-  const movedHoriz = useRef(false) // 用來抑制 click（只在水平拖曳成立時）
+
+  // 手機/觸控用：只要最近剛捲動過，就先擋掉 click
+  const lastScrollAt = useRef(0)
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const el = ref.current
     if (!el) return
-    isDown.current = true
-    setDraggingX(false)
-    movedHoriz.current = false
-    startX.current = e.clientX
-    startY.current = e.clientY
-    startScroll.current = el.scrollLeft
-    pointerIdRef.current = e.pointerId
-    // 不要立刻 setPointerCapture；等確定是水平拖曳再抓
+
+    if (e.pointerType === "mouse") {
+      isDown.current = true
+      movedHoriz.current = false
+      startX.current = e.clientX
+      startScroll.current = el.scrollLeft
+      pointerIdRef.current = e.pointerId
+      ;(e.target as Element).setPointerCapture?.(e.pointerId)
+      setDraggingMouse(true)
+    }
+    // 觸控/手寫筆：不做任何事，交給瀏覽器原生捲動
   }
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!isDown.current) return
+    if (!isDown.current || e.pointerType !== "mouse") return
     const el = ref.current
     if (!el) return
-
     const dx = e.clientX - startX.current
-    const dy = e.clientY - startY.current
-
-    // 尚未決定方向：判定使用者意圖
-    if (!draggingX) {
-      // 使用者往下/上滑而且幅度大於橫向 → 讓瀏覽器處理（不 preventDefault）
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) >= 4) {
-        // 放棄水平拖曳判定
-        return
-      }
-      // 橫向超過門檻，且大於縱向 → 啟動水平拖曳
-      if (Math.abs(dx) >= dragThresholdPx && Math.abs(dx) > Math.abs(dy)) {
-        setDraggingX(true)
-        movedHoriz.current = true
-        ;(e.target as Element).setPointerCapture?.(e.pointerId)
-      } else {
-        return
-      }
-    }
-
-    // 已在水平拖曳：更新 scroll，阻止預設避免頁面跟著動
+    if (Math.abs(dx) >= dragThresholdPx) movedHoriz.current = true
     el.scrollLeft = startScroll.current - dx
-    e.preventDefault()
+    e.preventDefault() // 只在滑鼠拖曳時阻止預設
   }
 
   const finishPointer = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    isDown.current = false
-    // 釋放指標捕捉（若有）
-    if (pointerIdRef.current != null) {
-      ;(e.target as Element).releasePointerCapture?.(pointerIdRef.current)
-      pointerIdRef.current = null
+    if (e.pointerType === "mouse") {
+      isDown.current = false
+      if (pointerIdRef.current != null) {
+        ;(e.target as Element).releasePointerCapture?.(pointerIdRef.current)
+        pointerIdRef.current = null
+      }
+      setDraggingMouse(false)
+      // 留一小段時間擋掉隨後的 click
+      setTimeout(() => {
+        movedHoriz.current = false
+      }, 80)
     }
-    // 拖曳結束後稍微保留 movedHoriz 用於攔截隨後的 click
-    setTimeout(() => {
-      movedHoriz.current = false
-    }, 80)
-    setDraggingX(false)
   }, [])
 
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => finishPointer(e)
   const onPointerCancel = (e: PointerEvent<HTMLDivElement>) => finishPointer(e)
 
+  const onScroll = () => {
+    // 任何裝置的原生/程式捲動都會更新時間戳
+    lastScrollAt.current = Date.now()
+  }
+
   const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (suppressClickOnDrag && movedHoriz.current) {
+    if (!suppressClickOnDrag) return
+    const scrolledRecently = Date.now() - lastScrollAt.current < 150
+    if (movedHoriz.current || scrolledRecently) {
       e.preventDefault()
       e.stopPropagation()
     }
@@ -101,9 +96,21 @@ export default function DragScroll({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      onScroll={onScroll}
       onClickCapture={onClickCapture}
-      // 僅宣告 pan-y：讓瀏覽器自由處理縱向滾動；我們只在「已判定為水平拖曳」時阻止預設
-    
+      // 允許瀏覽器處理觸控橫/縱向捲動；滑鼠拖曳由上面邏輯控制
+      style={{ touchAction: "pan-x pan-y" }}
+      className={clsx(
+        // 橫向列表 + 隱藏滾動條（仍保留原生觸控捲動）
+        "flex gap-4 overflow-x-auto overflow-y-hidden no-scrollbar",
+        // 選字關閉避免拖曳時選到文字
+        "select-none",
+        // 滑鼠指標
+        draggingMouse ? "cursor-grabbing" : "cursor-grab",
+        // 只在滑鼠拖曳時暫停 snap，手機原生捲動不受影響
+        disableSnapWhileDragging ? (draggingMouse ? "snap-none" : "") : "",
+        className
+      )}
       {...rest}
     >
       {children}
