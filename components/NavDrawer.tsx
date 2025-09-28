@@ -7,9 +7,10 @@ import { usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import type { LucideIcon } from "lucide-react"
 import {
-  Menu, X, Home, Rocket, Wrench, Store, Gift, ShoppingCart, LogIn, LayoutDashboard,
-  CloudSunIcon,
+  Menu, X, Home, Rocket, Wrench, Store,
+  ShoppingCart, LogIn, LogOut, CloudSunIcon, User,
 } from "lucide-react"
+import { createSupabaseBrowser } from "@/lib/supabase-browser"
 
 const FEATURE_COLORS: Record<string, string> = {
   首頁: "bg-red-500",
@@ -32,6 +33,9 @@ export default function NavDrawer({
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const accent = FEATURE_COLORS[activeFeature] ?? "bg-red-500"
+
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const supabase = createSupabaseBrowser()
 
   const close  = useCallback(() => setOpen(false), [])
   const toggle = useCallback(() => setOpen(v => !v), [])
@@ -56,14 +60,33 @@ export default function NavDrawer({
     return () => { document.body.style.overflow = prev }
   }, [open])
 
+  // 監聽登入狀態
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUserEmail(session?.user?.email ?? null)
+    }
+    checkUser()
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserEmail(session?.user?.email ?? null)
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [supabase])
+
+  // 登出
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUserEmail(null)
+    close()
+  }
+
   return (
     <>
-      {/* 觸發按鈕（留在 header 內） */}
+      {/* 觸發按鈕 */}
       <button aria-label="選單" onClick={toggle} className={triggerClassName}>
         {open ? <X size={22} /> : <Menu size={22} />}
       </button>
 
-      {/* Portal：Overlay + Drawer 掛到 body，完全跳出頁面 header 的 z-index 疊層 */}
       {mounted && createPortal(
         <>
           {/* Overlay */}
@@ -88,7 +111,7 @@ export default function NavDrawer({
             aria-labelledby="navdrawer-title"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-            {/* Sticky Header（抽屜自己的頂欄，不會被內容蓋住） */}
+            {/* Header */}
             <div className="sticky top-0 z-[1] bg-white/95 backdrop-blur border-b">
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -105,7 +128,7 @@ export default function NavDrawer({
               </div>
             </div>
 
-            {/* 內容（單獨可滾動區域） */}
+            {/* 內容 */}
             <div className="flex-1 overflow-y-auto">
               <nav className="px-2 py-3">
                 <Section title="探索">
@@ -117,10 +140,34 @@ export default function NavDrawer({
                 </Section>
 
                 <Section title="功能">
-                  {/*<NavItem href="/rewards" icon={Gift} label="獎賞" />*/}
                   <NavItem href="/cart" icon={ShoppingCart} label="購物車" />
                 </Section>
 
+                <Section title="帳號">
+                  {userEmail ? (
+                    <div className="flex items-center justify-between px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <User size={18} />
+                        <span>{userEmail}</span>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-1 text-red-600 hover:underline"
+                      >
+                        <LogOut size={16} />
+                        登出
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/login?redirect=${encodeURIComponent(pathname)}`}
+                      className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 active:bg-gray-200"
+                    >
+                      <LogIn size={18} />
+                      <span>登入</span>
+                    </Link>
+                  )}
+                </Section>
               </nav>
             </div>
 
