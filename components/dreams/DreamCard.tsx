@@ -79,40 +79,40 @@ export default function DreamCard({ dream }: { dream: Dream }) {
   }
 
   // 投票
-  const vote = async (value: 1 | -1) => {
-    try {
-      const user = await ensureLogin()
-      const prev = meVote
+const vote = async (next: 1 | -1) => {
+  try {
+    const user = await ensureLogin()
+    const prev = meVote
 
-      // 樂觀更新（用函數式 setState，避免用到過期值）
-      if (value === 1) {
-        setUp(u => u + (prev === 1 ? -1 : 1) + (prev === -1 ? 1 : 0))
-        setDown(d => (prev === -1 ? d - 1 : d))
-        setMeVote(prev === 1 ? 0 : 1)
-      } else {
-        setDown(d => d + (prev === -1 ? -1 : 1) + (prev === 1 ? 1 : 0))
-        setUp(u => (prev === 1 ? u - 1 : u))
-        setMeVote(prev === -1 ? 0 : -1)
-      }
-
-      // Upsert / 刪除
-      if (prev === value) {
-        await supabase.from("dream_votes")
-          .delete()
-          .eq("dream_id", dream.id)
-          .eq("user_id", user.id)
-      } else {
-        // 建議後端把 dream_votes.user_id 預設為 auth.uid()，則這裡可以不傳 user_id
-        await supabase.from("dream_votes")
-          .upsert({ dream_id: dream.id, user_id: user.id, value })
-      }
-    } catch (e) {
-      // 被導去登入，不需要 alert
-      if ((e as Error).message !== "NOT_LOGGED_IN") {
-        console.error(e)
-      }
+    // 1) 樂觀更新
+    if (next === 1) {
+      setMeVote(prev === 1 ? 0 : 1)
+      setUp(u => u + (prev === 1 ? -1 : 1))           // +1 或 -1（取消）
+      setDown(d => (prev === -1 ? d - 1 : d))          // 若從 -1 換到 +1，要把 down -1
+    } else {
+      setMeVote(prev === -1 ? 0 : -1)
+      setDown(d => d + (prev === -1 ? -1 : 1))
+      setUp(u => (prev === 1 ? u - 1 : u))
     }
+
+    // 2) 寫回資料庫
+    if (prev === next) {
+      // 同值 -> 取消（刪除）
+      await supabase
+        .from("dream_votes")
+        .delete()
+        .eq("dream_id", dream.id)
+        .eq("user_id", user.id)
+    } else {
+      // 不同值 -> 改票 / 首投
+      await supabase
+        .from("dream_votes")
+        .upsert({ dream_id: dream.id, user_id: user.id, value: next })
+    }
+  } catch (e) {
+    if ((e as Error).message !== "NOT_LOGGED_IN") console.error(e)
   }
+}
 
   // 留言
   const postComment = async () => {
@@ -121,8 +121,8 @@ export default function DreamCard({ dream }: { dream: Dream }) {
       const body = comment.trim()
       if (!body) return
       setComment("")
-      await supabase.from("dream_comments").insert({ dream_id: dream.id, user_id: user.id, body })
-      loadComments()
+        await supabase.from("dream_comments").insert({ dream_id: dream.id, body })
+              loadComments()
     } catch (e) {
       if ((e as Error).message !== "NOT_LOGGED_IN") {
         console.error(e)
