@@ -35,6 +35,7 @@ export default function NavDrawer({
   const accent = FEATURE_COLORS[activeFeature] ?? "bg-red-500"
 
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const supabase = createSupabaseBrowser()
 
   const close  = useCallback(() => setOpen(false), [])
@@ -65,10 +66,12 @@ export default function NavDrawer({
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUserEmail(session?.user?.email ?? null)
+      setDisplayName((session?.user?.user_metadata as any)?.display_name ?? null)
     }
     checkUser()
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUserEmail(session?.user?.email ?? null)
+      setDisplayName((session?.user?.user_metadata as any)?.display_name ?? null)
     })
     return () => sub.subscription.unsubscribe()
   }, [supabase])
@@ -77,6 +80,7 @@ export default function NavDrawer({
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUserEmail(null)
+    setDisplayName(null)
     close()
   }
 
@@ -144,30 +148,34 @@ export default function NavDrawer({
                 </Section>
 
                 <Section title="帳號">
-                  {userEmail ? (
-                    <div className="flex items-center justify-between px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <User size={18} />
-                        <span>{userEmail}</span>
-                      </div>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1 text-red-600 hover:underline"
-                      >
-                        <LogOut size={16} />
-                        登出
-                      </button>
-                    </div>
-                  ) : (
-                    <Link
-                      href={`/login?redirect=${encodeURIComponent(pathname)}`}
-                      className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 active:bg-gray-200"
-                    >
-                      <LogIn size={18} />
-                      <span>登入</span>
-                    </Link>
-                  )}
-                </Section>
+  {userEmail ? (
+
+   <>
+     <div className="flex items-center justify-between px-4 py-3 text-sm">
+       <div className="flex items-center gap-2">
+         <User size={18} />
+         <div className="flex flex-col">
+           {displayName && <span className="font-medium">{displayName}</span>}
+           <span className="text-gray-500">{userEmail}</span>
+         </div>
+       </div>
+       <button onClick={handleLogout} className="flex items-center gap-1 text-red-600 hover:underline">
+         <LogOut size={16} />
+         登出
+       </button>
+     </div>
+     <NavItem href="/settings" icon={User} label="設定" />
+   </>
+  ) : (
+    <Link
+      href={`/login?redirect=${encodeURIComponent(pathname)}`}
+      className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 active:bg-gray-200"
+    >
+      <LogIn size={18} />
+      <span>登入</span>
+    </Link>
+  )}
+</Section>
               </nav>
             </div>
 
