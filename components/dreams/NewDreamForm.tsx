@@ -2,12 +2,9 @@
 "use client"
 
 import { useState } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { createSupabaseBrowser } from "@/lib/supabase-browser"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const supabase = createSupabaseBrowser()
 
 export default function NewDreamForm() {
   const [title, setTitle] = useState("")
@@ -20,13 +17,23 @@ export default function NewDreamForm() {
     e.preventDefault()
     setLoading(true); setMsg(null)
 
-    const user = (await supabase.auth.getUser()).data.user
+    // 重點：用 getSession() 比 getUser() 更可靠（剛登入/剛刷新時）
+    const { data: { session }, error: sessErr } = await supabase.auth.getSession()
+    if (sessErr) {
+      setMsg("讀取登入狀態失敗：" + sessErr.message)
+      setLoading(false)
+      return
+    }
+    const user = session?.user
     if (!user) {
+      // 也可以直接導去登入並回跳：
+      // window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`
       setMsg("請先登入再發佈。")
       setLoading(false)
       return
     }
 
+    // 建立主檔
     const { data: dream, error } = await supabase
       .from("dreams")
       .insert({ title, public_content: pub, user_id: user.id })
@@ -39,6 +46,7 @@ export default function NewDreamForm() {
       return
     }
 
+    //（可選）寫入隱藏內容
     if (hidden.trim()) {
       const { error: e2 } = await supabase
         .from("dreams_secret")
@@ -52,8 +60,9 @@ export default function NewDreamForm() {
 
     setMsg("發佈成功！")
     setTitle(""); setPub(""); setHidden("")
-    // 簡單刷新
-    window.location.reload()
+    // 導回清單或詳情頁任選其一
+    window.location.assign(`/dreams/${dream!.id}`)
+    // 或：window.location.assign("/dreams")
   }
 
   return (
