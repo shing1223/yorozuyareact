@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic"
 
 type MerchantRow = {
   slug: string
+  tags: string[]
   name: string
   avatar_url: string | null
 }
@@ -18,7 +19,7 @@ export default async function Home() {
   // 只取最新 12 位公開商戶（依建立時間倒序）
   const { data: merchants, error } = await supabase
     .from("merchants")
-    .select("slug, name, avatar_url, created_at")
+    .select("slug, tags, name, avatar_url, created_at")
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(12)
@@ -129,6 +130,7 @@ export default async function Home() {
                 <div className="mt-2 line-clamp-1 font-medium group-hover:underline">
                   {m.name}
                 </div>
+               <div className="mt-1 line-clamp-1 text-xs text-gray-500">{m.tags}</div>
                 <div className="mt-1 text-xs text-gray-500">@{m.slug}</div>
               </Link>
             ))}
