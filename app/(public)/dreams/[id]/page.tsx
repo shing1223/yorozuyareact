@@ -35,7 +35,7 @@ export default async function DreamDetailPage({ params }: Props) {
 
         {!dream ? (
           <div className="rounded-2xl border bg-white p-6 text-gray-500">
-            找不到這個夢想。
+            請先登入。
           </div>
         ) : (
           // DreamCard 需要的欄位：id, title, public_content, hidden_content, up_count, down_count, created_at...
