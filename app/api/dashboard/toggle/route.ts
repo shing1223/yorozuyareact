@@ -29,8 +29,13 @@ async function sbFromCookies() {
 }
 
 export async function POST(req: Request) {
-  // ✅ 這裡也記得 await
   const sb = await sbFromCookies()
+
+  // 取使用者
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
 
   const form = await req.formData()
   const merchant = String(form.get('merchant') ?? '')
@@ -40,6 +45,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 })
   }
 
+  // ✅ 檢查 membership 必須是 owner
+  const { data: membership, error: memErr } = await sb
+    .from('membership')
+    .select('role')
+    .eq('user_id', session.user.id)
+    .eq('merchant_id', merchant)   // 注意要對應 merchant_id/slug
+    .maybeSingle()
+
+  if (memErr || !membership || membership.role !== 'owner') {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  }
+
+  // 原本邏輯
   const { data: cur } = await sb
     .from('media_selection')
     .select('is_published')
@@ -62,9 +80,15 @@ export async function POST(req: Request) {
     )
 
   if (error) {
-    return NextResponse.json({ error: 'toggle_failed', detail: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: 'toggle_failed', detail: error.message },
+      { status: 500 }
+    )
   }
 
   const url = new URL(req.url)
-  return NextResponse.redirect(new URL(`/dashboard?merchant=${merchant}`, url.origin), { status: 302 })
+  return NextResponse.redirect(
+    new URL(`/dashboard?merchant=${merchant}`, url.origin),
+    { status: 302 }
+  )
 }

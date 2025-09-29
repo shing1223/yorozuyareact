@@ -1,14 +1,14 @@
 // components/NavDrawer.tsx
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import type { LucideIcon } from "lucide-react"
 import {
   Menu, X, Home, Rocket, Wrench, Store,
-  ShoppingCart, LogIn, LogOut, CloudSunIcon, User,
+  ShoppingCart, LogIn, LogOut, CloudSunIcon, User, LayoutDashboard,
 } from "lucide-react"
 import { createSupabaseBrowser } from "@/lib/supabase-browser"
 
@@ -36,6 +36,7 @@ export default function NavDrawer({
 
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
+  const [isOwner, setIsOwner] = useState(false) // ✅ 是否 owner（顯示後台）
   const supabase = createSupabaseBrowser()
 
   const close  = useCallback(() => setOpen(false), [])
@@ -61,19 +62,53 @@ export default function NavDrawer({
     return () => { document.body.style.overflow = prev }
   }, [open])
 
-  // 監聽登入狀態
+  // 監聽登入狀態 + 讀 membership.owner
   useEffect(() => {
-    const checkUser = async () => {
+    let alive = true
+
+    const pull = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      setUserEmail(session?.user?.email ?? null)
-      setDisplayName((session?.user?.user_metadata as any)?.display_name ?? null)
+      const u = session?.user ?? null
+      if (!alive) return
+
+      setUserEmail(u?.email ?? null)
+      setDisplayName((u?.user_metadata as any)?.display_name ?? null)
+
+      // 只有登入才查 membership
+      if (u?.id) {
+        try {
+          const { data, error } = await supabase
+            .from("membership")
+            .select("role")
+            .eq("user_id", u.id)
+            .limit(1)
+
+          if (!alive) return
+          if (error) {
+            setIsOwner(false)
+          } else {
+            setIsOwner(!!data?.some(row => String(row.role).toLowerCase() === "owner"))
+          }
+        } catch {
+          if (alive) setIsOwner(false)
+        }
+      } else {
+        setIsOwner(false)
+      }
     }
-    checkUser()
+
+    pull()
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUserEmail(session?.user?.email ?? null)
       setDisplayName((session?.user?.user_metadata as any)?.display_name ?? null)
+      // re-check owner flag（避免殘留）
+      if (!session?.user?.id) setIsOwner(false); else pull()
     })
-    return () => sub.subscription.unsubscribe()
+
+    return () => {
+      alive = false
+      sub.subscription.unsubscribe()
+    }
   }, [supabase])
 
   // 登出
@@ -81,8 +116,11 @@ export default function NavDrawer({
     await supabase.auth.signOut()
     setUserEmail(null)
     setDisplayName(null)
+    setIsOwner(false)
     close()
   }
+
+  const safePath = useMemo(() => (pathname && pathname.startsWith("/") ? pathname : "/"), [pathname])
 
   return (
     <>
@@ -148,34 +186,43 @@ export default function NavDrawer({
                 </Section>
 
                 <Section title="帳號">
-  {userEmail ? (
+                  {userEmail ? (
+                    <>
+                      <div className="flex items-center justify-between px-4 py-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <User size={18} />
+                          <div className="flex flex-col min-w-0">
+                            {displayName && <span className="font-medium truncate">{displayName}</span>}
+                            <span className="text-gray-500 truncate">{userEmail}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-1 text-red-600 hover:underline"
+                        >
+                          <LogOut size={16} />
+                          登出
+                        </button>
+                      </div>
 
-   <>
-     <div className="flex items-center justify-between px-4 py-3 text-sm">
-       <div className="flex items-center gap-2">
-         <User size={18} />
-         <div className="flex flex-col">
-           {displayName && <span className="font-medium">{displayName}</span>}
-           <span className="text-gray-500">{userEmail}</span>
-         </div>
-       </div>
-       <button onClick={handleLogout} className="flex items-center gap-1 text-red-600 hover:underline">
-         <LogOut size={16} />
-         登出
-       </button>
-     </div>
-     <NavItem href="/settings" icon={User} label="設定" />
-   </>
-  ) : (
-    <Link
-      href={`/login?redirect=${encodeURIComponent(pathname)}`}
-      className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 active:bg-gray-200"
-    >
-      <LogIn size={18} />
-      <span>登入</span>
-    </Link>
-  )}
-</Section>
+                      {/* 設定 */}
+                      <NavItem href="/settings" icon={User} label="設定" />
+
+                      {/* 後台（僅 owner 顯示） */}
+                      {isOwner && (
+                        <NavItem href="/dashboard" icon={LayoutDashboard} label="商家後台" />
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      href={`/login?redirect=${encodeURIComponent(safePath)}`}
+                      className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-100 active:bg-gray-200"
+                    >
+                      <LogIn size={18} />
+                      <span>登入</span>
+                    </Link>
+                  )}
+                </Section>
               </nav>
             </div>
 

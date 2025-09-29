@@ -10,16 +10,24 @@ export default async function DashboardHome() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login?redirect=/dashboard')
 
-  // 取得此使用者的唯一商戶（平台為 1:1）
-  const { data: myMerchants } = await supabase
+  // 僅允許 owner 進入
+  const { data: ownerMembership, error: memErr } = await supabase
     .from('membership')
-    .select('merchant_id')
+    .select('merchant_id, role')
     .eq('user_id', session.user.id)
-    .limit(1)
+    .eq('role', 'owner')       // ✅ 僅 owner
+    .maybeSingle()
 
-const merchant = (myMerchants?.[0]?.merchant_id || '').trim().toLowerCase();
+  if (!ownerMembership || memErr) {
+    // 不是 owner 或沒有綁商戶 → 退回首頁（可改成 /settings 或自訂 no-access 頁）
+    redirect('/?noaccess=dashboard')
+  }
 
-  // 下面所有查詢都用這個 merchant
+  const merchant = String(ownerMembership.merchant_id || '')
+    .trim()
+    .toLowerCase()
+
+  // 下面所有查詢都用 owner 的 merchant
   const { data: acct } = await supabase
     .from('ig_account')
     .select('ig_username, ig_user_id')
@@ -38,12 +46,10 @@ const merchant = (myMerchants?.[0]?.merchant_id || '').trim().toLowerCase();
     .select('ig_media_id, is_published')
     .eq('merchant_slug', merchant)
 
-  // ✅ 製作 publishedMap
   const publishedMap = new Map<string, boolean>(
     (sel ?? []).map((s) => [String(s.ig_media_id), !!s.is_published])
   )
 
-  // ⬇️ 取每則媒體是否已有商品與價格（left join）
   const { data: binds } = await supabase
     .from('media_product')
     .select('ig_media_id, product:product_id(id, title, price, currency)')
@@ -155,7 +161,7 @@ function MediaCard({
             已發佈
           </span>
         )}
-        <img src={img} alt="" className="w-full aspect-square object-cover" />
+        <img src={img || undefined} alt="" className="w-full aspect-square object-cover" />
       </div>
 
       <div className="p-2 text-sm space-y-2">
@@ -201,8 +207,8 @@ function MediaCard({
               required
             >
               <option value="HKD">HKD</option>
-               <option value="TWD">TWD</option>
-              <option value="USD">USD</option> 
+              <option value="TWD">TWD</option>
+              <option value="USD">USD</option>
             </select>
           </div>
 
@@ -211,7 +217,6 @@ function MediaCard({
           </button>
         </form>
 
-        {/* 已設價格顯示 */}
         {product?.price != null && (
           <div className="text-xs text-gray-600">
             目前售價：{product?.currency ?? 'HKD'} {Number(product?.price).toLocaleString()}
