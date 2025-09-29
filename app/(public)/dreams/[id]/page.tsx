@@ -9,12 +9,13 @@ export const dynamic = "force-dynamic"
 type Props = { params: { id: string } }
 
 export default async function DreamDetailPage({ params }: Props) {
+  const { id } = await params
   const supabase = await getSb()
 
-  const { data: dream, error } = await supabase
+   const { data: dream, error } = await supabase
     .from("v_dreams_full")
-    .select("*, display_name")
-    .eq("id", params.id)
+    .select("*")
+    .eq("id", id)
     .maybeSingle()
 
   if (error) {
