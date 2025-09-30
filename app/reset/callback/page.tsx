@@ -1,16 +1,21 @@
 // app/reset/callback/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
-export default function ResetCallbackPage() {
+export const dynamic = 'force-dynamic' // 避免 SSG 預跑時取不到 search params
+
+function ResetCallbackInner() {
   const supabase = createSupabaseBrowser()
   const router = useRouter()
   const sp = useSearchParams()
-  const redirect = sp.get('redirect') || '/login'
+
+  // 只允許站內路徑，避免 open redirect
+  const raw = sp.get('redirect') || '/login'
+  const redirect = raw.startsWith('/') ? raw : '/login'
 
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
@@ -22,28 +27,17 @@ export default function ResetCallbackPage() {
     e.preventDefault()
     setErr(null); setMsg(null)
 
-    if (password.length < 8) {
-      setErr('密碼至少需要 8 碼')
-      return
-    }
-    if (password !== password2) {
-      setErr('兩次輸入的密碼不一致')
-      return
-    }
+    if (password.length < 8) return setErr('密碼至少需要 8 碼')
+    if (password !== password2) return setErr('兩次輸入的密碼不一致')
 
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
     setLoading(false)
 
-    if (error) {
-      setErr(error.message)
-      return
-    }
+    if (error) return setErr(error.message)
 
     setMsg('密碼已更新，請重新登入')
-    setTimeout(() => {
-      router.replace(redirect)
-    }, 1800)
+    setTimeout(() => router.replace(redirect), 1200)
   }
 
   return (
@@ -91,5 +85,13 @@ export default function ResetCallbackPage() {
         </div>
       </section>
     </main>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ResetCallbackInner />
+    </Suspense>
   )
 }
