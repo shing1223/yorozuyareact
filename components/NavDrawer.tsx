@@ -256,9 +256,13 @@ export default function NavDrawer({
             </div>
 
             {/* Footer */}
-            <div className="px-4 pb-6 pt-2 text-xs text-gray-400 dark:text-gray-500">
-              © {new Date().getFullYear()} 萬事屋
+            <div className="px-4 pb-22 pt-22 text-xs text-gray-400 dark:text-gray-500">
+              Follow @maxhse_com
             </div>
+            <div className="px-4 pb-6 pt-2 text-xs text-gray-400 dark:text-gray-500">
+              © {new Date().getFullYear()} 萬事屋 | MaxHse All rights reserved.
+            </div>
+    
           </aside>
         </>,
         document.body
