@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://www.maxhse.com
+
+# Sitemaps
+Sitemap: https://www.maxhse.com/sitemap.xml
