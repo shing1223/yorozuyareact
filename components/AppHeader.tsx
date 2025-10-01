@@ -5,21 +5,19 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ShoppingCart } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
+import ThemeToggle from "@/components/ThemeToggle" // ← 新增
 
-// ① 統一型別
 export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "夢想"
-type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
+type FeatureItem = { label: FeatureLabel; bgLight: string; bgDark: string; badge?: string }
 
-// ② 常數用 satisfies 讓 TS 檢查
 const FEATURES: FeatureItem[] = [
-  { label: "首頁", bg: "bg-red-500" },
-  { label: "網店", bg: "bg-orange-500" },
-  { label: "初創", bg: "bg-emerald-500" },
-  { label: "服務", bg: "bg-blue-500" },
-  { label: "夢想", bg: "bg-pink-500" },
+  { label: "首頁", bgLight: "bg-red-500",     bgDark: "bg-red-400" },
+  { label: "網店", bgLight: "bg-orange-500",  bgDark: "bg-orange-400" },
+  { label: "初創", bgLight: "bg-emerald-500", bgDark: "bg-emerald-400" },
+  { label: "服務", bgLight: "bg-blue-500",    bgDark: "bg-blue-400" },
+  { label: "夢想", bgLight: "bg-pink-500",    bgDark: "bg-pink-400" },
 ]
 
-// ③ 路由映射也用相同型別
 const routes: Record<FeatureLabel, string> = {
   首頁: "/",
   初創: "/startup",
@@ -31,7 +29,7 @@ const routes: Record<FeatureLabel, string> = {
 export default function AppHeader({
   brand = "萬事屋",
   handle = "@maxhse_com",
-  activeFeature = "首頁", // ④ 使用 FeatureLabel
+  activeFeature = "首頁",
 }: {
   brand?: string
   handle?: string
@@ -41,11 +39,10 @@ export default function AppHeader({
   const [rowH, setRowH] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
 
-  // 找到目前 active feature 的顏色
   const active = FEATURES.find((f) => f.label === activeFeature)
-  const activeBg = active?.bg ?? "bg-red-500"
+  const activeBar =
+    `${active?.bgLight ?? "bg-red-500"} dark:${active?.bgDark ?? "bg-red-400"}`
 
-  // 高度量測
   useLayoutEffect(() => {
     const el = rowRef.current
     if (!el) return
@@ -56,7 +53,6 @@ export default function AppHeader({
     return () => ro.disconnect()
   }, [])
 
-  // 下滑收起，上滑展開
   useEffect(() => {
     let ticking = false
     let lastY = window.scrollY
@@ -79,27 +75,32 @@ export default function AppHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70
+                 dark:bg-neutral-900/90 dark:supports-[backdrop-filter]:bg-neutral-900/70"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-baseline gap-1">
-          <span className="text-[28px] leading-none font-extrabold tracking-tight">
-            <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
+          <span className="text-[28px] leading-none font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+            <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBar}`} />
             {brand}
           </span>
-          <span className="text-xs text-gray-500">{handle}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/cart"
             aria-label="購物車"
-            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95"
+            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95
+                       dark:hover:bg-neutral-800"
           >
             <ShoppingCart size={20} />
           </Link>
-          {/* ⑤ 與 NavDrawer 型別一致 */}
+
+          {/* 主題切換 */}
+          <ThemeToggle />
+
           <NavDrawer activeFeature={activeFeature} />
         </div>
       </div>
@@ -120,15 +121,19 @@ export default function AppHeader({
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {FEATURES.map((it) => {
               const to = routes[it.label]
+              const tileBg = `${it.bgLight} dark:${it.bgDark}`
               return to ? (
                 <Link
                   key={it.label}
                   href={to}
-                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative flex items-center justify-center`}
+                  className={`${tileBg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold
+                              relative flex items-center justify-center
+                              ring-1 ring-black/0 dark:ring-white/0 hover:ring-black/10 dark:hover:ring-white/10`}
                 >
                   {it.label}
                   {it.badge && (
-                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow
+                                     dark:bg-neutral-900/95 dark:text-gray-100">
                       {it.badge}
                     </span>
                   )}
@@ -136,11 +141,13 @@ export default function AppHeader({
               ) : (
                 <button
                   key={it.label}
-                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative`}
+                  className={`${tileBg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative
+                              ring-1 ring-black/0 dark:ring-white/0 hover:ring-black/10 dark:hover:ring-white/10`}
                 >
                   {it.label}
                   {it.badge && (
-                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow
+                                     dark:bg-neutral-900/95 dark:text-gray-100">
                       {it.badge}
                     </span>
                   )}

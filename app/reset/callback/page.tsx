@@ -1,32 +1,90 @@
 // app/reset/callback/page.tsx
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import { createSupabaseBrowser } from '@/lib/supabase-browser'
 
-export const dynamic = 'force-dynamic' // 避免 SSG 預跑時取不到 search params
+export const dynamic = 'force-dynamic' // 避免 SSG
 
 function ResetCallbackInner() {
   const supabase = createSupabaseBrowser()
   const router = useRouter()
   const sp = useSearchParams()
 
-  // 只允許站內路徑，避免 open redirect
-  const raw = sp.get('redirect') || '/login'
-  const redirect = raw.startsWith('/') ? raw : '/login'
+  // 僅允許站內路徑，避免 open redirect
+  const redirect = useMemo(() => {
+    const raw = sp.get('redirect') || '/login'
+    return raw.startsWith('/') ? raw : '/login'
+  }, [sp])
 
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [hasRecoverySession, setHasRecoverySession] = useState<boolean | null>(null)
+
+  // ✅ 進頁面時，確保有可用的 recovery session
+  useEffect(() => {
+    let alive = true
+
+    const ensureSession = async () => {
+      // 1) 已有 session？
+      const { data: s1 } = await supabase.auth.getSession()
+      if (!alive) return
+      if (s1.session) {
+        setHasRecoverySession(true)
+        return
+      }
+
+      // 2) 嘗試 ?code=...（PKCE / recovery）
+      const urlHasCode = typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('code')
+      if (urlHasCode) {
+        try {
+          const { data: s2, error } = await supabase.auth.exchangeCodeForSession(window.location.href)
+          if (!alive) return
+          if (!error && s2?.session) {
+            setHasRecoverySession(true)
+            return
+          }
+        } catch { /* noop */ }
+      }
+
+      // 3) 嘗試 #access_token=...（舊式 hash）
+      if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+        const hash = new URLSearchParams(window.location.hash.slice(1))
+        const access_token = hash.get('access_token') || ''
+        const refresh_token = hash.get('refresh_token') || ''
+        if (access_token && refresh_token) {
+          try {
+            const { data: s3, error } = await supabase.auth.setSession({ access_token, refresh_token })
+            if (!alive) return
+            if (!error && s3?.session) {
+              setHasRecoverySession(true)
+              return
+            }
+          } catch { /* noop */ }
+        }
+      }
+
+      // 都沒有 → 顯示錯誤
+      setHasRecoverySession(false)
+    }
+
+    ensureSession()
+    return () => { alive = false }
+  }, [supabase])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null); setMsg(null)
 
+    if (!hasRecoverySession) {
+      setErr('重設連結無效或已過期，請重新申請重設密碼。')
+      return
+    }
     if (password.length < 8) return setErr('密碼至少需要 8 碼')
     if (password !== password2) return setErr('兩次輸入的密碼不一致')
 
@@ -51,6 +109,14 @@ function ResetCallbackInner() {
         </div>
 
         <div className="mx-auto max-w-sm">
+          {/* hasRecoverySession === null → 正在確認 session */}
+          {hasRecoverySession === false && (
+            <div className="mb-3 rounded-lg border bg-white p-4 text-sm text-red-600">
+              重設連結無效或已過期，請回到
+              <a href="/reset" className="underline"> 重設頁</a> 重新申請。
+            </div>
+          )}
+
           <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm">
             <input
               type="password"
@@ -76,7 +142,7 @@ function ResetCallbackInner() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || hasRecoverySession === false}
               className="w-full px-4 py-2 rounded bg-black text-white disabled:opacity-60"
             >
               {loading ? '處理中…' : '更新密碼'}
