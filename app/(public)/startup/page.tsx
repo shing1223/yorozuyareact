@@ -12,7 +12,7 @@ export default async function StartupPage() {
   // 取得「公開 & 類別 = startup」的租戶
   const { data: merchants, error } = await supabase
     .from("merchants")
-    .select("slug, name, avatar_url")
+    .select("slug, name, tags, avatar_url")
     .eq("is_public", true)
     .eq("category", "startup")
     .order("created_at", { ascending: true })
@@ -51,6 +51,7 @@ export default async function StartupPage() {
                 <div className="mt-2 line-clamp-1 font-semibold group-hover:underline">
                   {m.name}
                 </div>
+                <div className="mt-1 line-clamp-1 text-xs text-gray-500">{m.tags}</div>
                 <div className="mt-1 text-xs text-gray-500">@{m.slug}</div>
               </Link>
             ))}
