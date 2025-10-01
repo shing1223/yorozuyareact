@@ -63,7 +63,7 @@ export default async function Home() {
         desc: "有夢想但遲遲未能實現？不妨留言告訴大家，或者有共同理念的人一起實現！",
         bg: "bg-pink-500",
         img: "/images/banner3.png",
-        href: "#",
+        href: "/dreams",
       },
     ].map((b, i) => (
       <Link
