@@ -50,36 +50,59 @@ export default function NewDreamForm() {
     }
   }
 
+  const fieldBase =
+    "w-full rounded-lg border px-3 py-2 outline-none " +
+    "bg-white text-gray-900 placeholder-gray-400 border-gray-200 " +
+    "focus:border-transparent focus:ring-2 focus:ring-red-500/60 " +
+    "dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700 " +
+    "dark:focus:ring-red-500/70"
+
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm
+                 border-gray-200 dark:border-gray-700 dark:bg-gray-900"
+    >
       <input
-        className="w-full rounded-lg border px-3 py-2"
+        className={fieldBase}
         placeholder="夢想標題（最多 120 字）"
         maxLength={120}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         required
+        autoComplete="off"
+        spellCheck={false}
       />
+
       <textarea
-        className="w-full rounded-lg border px-3 py-2"
+        className={fieldBase}
         placeholder="公開內容（所有人可見）"
         rows={4}
         value={pub}
         onChange={(e) => setPub(e.target.value)}
         required
       />
+
       <textarea
-        className="w-full rounded-lg border px-3 py-2"
+        className={fieldBase}
         placeholder="隱藏內容（只有投資者能看到，可留空）"
         rows={3}
         value={hidden}
         onChange={(e) => setHidden(e.target.value)}
       />
+
       <div className="flex items-center gap-3">
-        <button disabled={loading} className="rounded-lg bg-red-500 px-4 py-2 text-white disabled:opacity-50">
+        <button
+          disabled={loading}
+          className="rounded-lg bg-red-500 px-4 py-2 text-white disabled:opacity-50
+                     hover:bg-red-600 active:scale-[0.99] transition"
+        >
           {loading ? "發佈中…" : "發佈"}
         </button>
-        {msg && <div className="text-sm text-gray-600">{msg}</div>}
+
+        {msg && (
+          <div className="text-sm text-gray-600 dark:text-gray-300">{msg}</div>
+        )}
       </div>
     </form>
   )
