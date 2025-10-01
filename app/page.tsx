@@ -54,16 +54,16 @@ export default async function Home() {
         name: "加入成為投資者",
         desc: "了解創作家的構想，與他們共同成長。",
         bg: "bg-blue-500",
-        img: "/images/banner1.png",
-        href: "/shop/mysecondshop",
+        img: "/images/banner2.png",
+        href: "#",
       },
       {
         title: "發佈夢想",
         name: "我有一個夢想⋯",
         desc: "有夢想但遲遲未能實現？不妨留言告訴大家，或者有共同理念的人一起實現！",
         bg: "bg-pink-500",
-        img: "/images/banner1.png",
-        href: "/shop/demo",
+        img: "/images/banner3.png",
+        href: "#",
       },
     ].map((b, i) => (
       <Link

@@ -200,9 +200,9 @@ export default function NavDrawer({
               <nav className="px-2 py-3">
                 <Section title="探索">
                   <NavItem href="/" icon={Home} label="首頁" />
-                  <NavItem href="/shop/categories" icon={Store} label="網店專區" />
-                  <NavItem href="/startup" icon={Rocket} label="初創專區" />
-                  <NavItem href="/service" icon={Wrench} label="服務專區" />
+                  <NavItem href="/shop/categories" icon={Store} label="網店" />
+                  <NavItem href="/startup" icon={Rocket} label="初創" />
+                  <NavItem href="/service" icon={Wrench} label="服務" />
                   <NavItem href="/dreams" icon={CloudSunIcon} label="我有一個夢想⋯" />
                 </Section>
 
