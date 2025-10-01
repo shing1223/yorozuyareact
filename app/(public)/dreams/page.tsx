@@ -10,9 +10,9 @@ export default async function DreamsPage() {
 
   const { data: dreams, error } = await supabase
     .from("v_dreams_public")
-    .select("id, title, public_content, up_count, down_count, created_at, display_name")
-    .order("created_at", { ascending: false })
-     .limit(60)
+  .select("id, title, public_content, created_at, display_name")
+  .order("created_at", { ascending: false })
+  .limit(60)
 
   if (error) console.error("load dreams error:", error)
 
@@ -57,11 +57,11 @@ export default async function DreamsPage() {
                     {d.public_content}
                   </p>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
-   <span>發佈者：{d.display_name ?? "匿名"}</span>
-   <span>支持：{d.up_count ?? 0}</span>
-   <span>反對：{d.down_count ?? 0}</span>
- </div>
+                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
+  <span>發佈者：{d.display_name ?? "匿名"}</span>
+  <span>支持：0</span>
+  <span>反對：0</span>
+</div>
                 </Link>
               </li>
             ))}
