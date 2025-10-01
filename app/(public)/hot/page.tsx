@@ -33,26 +33,40 @@ export default async function HotPage() {
       />
 
       <section className="px-4 py-4 pb-24">
-        <h3 className="mb-3 text-base font-semibold">熱門商戶</h3>
+        <h3 className="mb-3 text-base font-semibold text-gray-900 dark:text-gray-100">
+          熱門商戶
+        </h3>
 
         {!merchants?.length ? (
-          <p className="text-gray-500">暫無熱門商戶，稍後再來逛逛～</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            暫無熱門商戶，稍後再來逛逛～
+          </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {merchants.map((m) => (
               <Link
                 key={m.slug}
                 href={`/shop/${m.slug}?from=shop`}
-                className="group rounded-2xl border bg-white p-4 shadow-sm active:scale-[0.98]"
+                className="group rounded-2xl border bg-white p-4 shadow-sm active:scale-[0.98]
+                           border-gray-200 dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none"
               >
-                <div className="h-20 w-full rounded-xl bg-gray-100 grid place-items-center overflow-hidden">
+                <div className="h-20 w-full rounded-xl bg-gray-100 dark:bg-neutral-800 grid place-items-center overflow-hidden">
                   {m.avatar_url ? (
-                    <img src={m.avatar_url} alt={`${m.name} avatar`} className="h-full w-full object-cover" />
+                    <img
+                      src={m.avatar_url}
+                      alt={`${m.name} avatar`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
                   ) : (
-                    <span className="text-gray-400 text-xs">封面</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-xs">
+                      封面
+                    </span>
                   )}
                 </div>
-                <div className="mt-2 line-clamp-1 font-medium group-hover:underline">{m.name}</div>
+                <div className="mt-2 line-clamp-1 font-medium group-hover:underline text-gray-900 dark:text-gray-100">
+                  {m.name}
+                </div>
               </Link>
             ))}
           </div>
