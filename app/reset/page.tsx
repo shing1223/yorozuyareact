@@ -25,7 +25,7 @@ export default function ResetPage() {
 
   return (
     <main className="mx-auto max-w-[1080px]">
-      <AppHeader brand="萬事屋" handle="@yorozuya" activeFeature="首頁" />
+      <AppHeader brand="萬事屋" handle="@maxhse_com" activeFeature="首頁" />
       <section className="px-4 py-6 pb-24">
         <h2 className="text-xl font-bold mb-4">重設密碼</h2>
         <div className="mx-auto max-w-sm space-y-4">

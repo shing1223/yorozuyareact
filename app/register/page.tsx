@@ -51,7 +51,7 @@ export default function SignupPage() {
 
   return (
     <main className="mx-auto max-w-[1080px]">
-      <AppHeader brand="萬事屋" handle="@yorozuya" activeFeature="首頁" />
+      <AppHeader brand="萬事屋" handle="@maxhse_com" activeFeature="首頁" />
       <section className="px-4 py-6 pb-24">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">建立帳號</h2>

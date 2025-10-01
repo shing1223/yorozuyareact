@@ -23,7 +23,7 @@ export default async function ServicePage() {
 
   return (
     <main className="mx-auto max-w-[1080px]">
-      <AppHeader brand="萬事屋" handle="@yorozuya" activeFeature="服務" />
+      <AppHeader brand="萬事屋" handle="@maxhse_com" activeFeature="服務" />
 
       <section className="px-4 py-6 pb-24">
         <h2 className="mb-3 text-xl font-bold">服務專區</h2>

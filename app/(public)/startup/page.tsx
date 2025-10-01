@@ -22,7 +22,7 @@ export default async function StartupPage() {
 
   return (
     <main className="mx-auto max-w-[1080px]">
-          <AppHeader brand="萬事屋" handle="@yorozuya" activeFeature="初創" />
+          <AppHeader brand="萬事屋" handle="@maxhse_com" activeFeature="初創" />
     
           <section className="px-4 py-6 pb-24">
             <h2 className="mb-3 text-xl font-bold">初創專區</h2>

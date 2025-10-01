@@ -26,7 +26,7 @@ export default async function HotPage() {
     <main className="mx-auto max-w-[1080px]">
       <CollapsibleHeader
         brand="萬事屋"
-        handle="@yorozuya"
+        handle="@maxhse_com"
         activeFeature="首頁"
         activeTab="熱門"
         tabs={["最新", "熱門"]}
