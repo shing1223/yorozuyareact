@@ -8,8 +8,19 @@ import NavDrawer from "@/components/NavDrawer"
 
 export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "夢想"
 type FeatureItem = { label: FeatureLabel; bg: string; badge?: string }
-
 type TabLabel = "最新" | "熱門"
+
+// 針對常用色提供 dark 對應，沒對應就原樣輸出
+const DARK_BG_MAP: Record<string, string> = {
+  "bg-red-500": "bg-red-500 dark:bg-red-400",
+  "bg-orange-500": "bg-orange-500 dark:bg-orange-400",
+  "bg-emerald-500": "bg-emerald-500 dark:bg-emerald-400",
+  "bg-blue-500": "bg-blue-500 dark:bg-blue-400",
+  "bg-pink-500": "bg-pink-500 dark:bg-pink-400",
+}
+function withDark(bg: string) {
+  return DARK_BG_MAP[bg] ?? bg
+}
 
 export default function CollapsibleHeader({
   brand = "萬事屋",
@@ -75,18 +86,20 @@ export default function CollapsibleHeader({
     夢想: "/dreams",
   }
 
-  // Tabs 路徑（你可以改成別的 URL 結構）
+  // Tabs 路徑
   const tabRoutes: Record<TabLabel, string> = {
     最新: "/",
     熱門: "/hot",
   }
 
   const active = features.find((f) => f.label === activeFeature)
-  const activeBg = active?.bg ?? "bg-red-500"
+  const activeBg = withDark(active?.bg ?? "bg-red-500")
 
   return (
     <header
-      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70
+                 text-gray-900 dark:bg-neutral-900/90 dark:supports-[backdrop-filter]:bg-neutral-900/70
+                 dark:text-gray-100"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {/* Top bar */}
@@ -96,10 +109,14 @@ export default function CollapsibleHeader({
             <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBg}`} />
             {brand}
           </span>
-          <span className="text-xs text-gray-500">{handle}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+          <Link
+            href="/cart"
+            aria-label="購物車"
+            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95 dark:hover:bg-neutral-800"
+          >
             <ShoppingCart size={20} />
           </Link>
           <NavDrawer activeFeature={activeFeature} />
@@ -122,15 +139,16 @@ export default function CollapsibleHeader({
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {features.map((it) => {
               const to = routes[it.label]
+              const bgClass = withDark(it.bg)
               return to ? (
                 <Link
                   key={it.label}
                   href={to}
-                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative flex items-center justify-center`}
+                  className={`${bgClass} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative flex items-center justify-center`}
                 >
                   {it.label}
                   {"badge" in it && it.badge && (
-                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow dark:bg-white/90">
                       {it.badge}
                     </span>
                   )}
@@ -138,11 +156,11 @@ export default function CollapsibleHeader({
               ) : (
                 <button
                   key={it.label}
-                  className={`${it.bg} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative`}
+                  className={`${bgClass} shrink-0 h-14 rounded-xl px-4 text-white font-semibold relative`}
                 >
                   {it.label}
                   {"badge" in it && it.badge && (
-                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow">
+                    <span className="absolute -right-2 -top-2 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-gray-900 shadow dark:bg-white/90">
                       {it.badge}
                     </span>
                   )}
@@ -153,8 +171,8 @@ export default function CollapsibleHeader({
         </div>
       </div>
 
-      {/* Tabs → Link + active 樣式 */}
-      <nav className="px-2 border-b">
+      {/* Tabs */}
+      <nav className="px-2 border-b border-gray-200 dark:border-neutral-800">
         <ul className="grid grid-cols-2 text-center">
           {tabs.map((t) => {
             const href = tabRoutes[t]
@@ -164,7 +182,7 @@ export default function CollapsibleHeader({
                 <Link
                   href={href}
                   className={`block w-full py-3 text-sm font-semibold ${
-                    isActive ? "text-gray-900" : "text-gray-500"
+                    isActive ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
                   }`}
                 >
                   {t}
