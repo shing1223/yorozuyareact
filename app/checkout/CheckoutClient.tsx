@@ -76,6 +76,9 @@ export default function CheckoutClient() {
         <p className="text-gray-900 dark:text-gray-100">
           你的訂單編號：<b>{orderCode}</b>
         </p>
+        <p className="text-gray-900 dark:text-gray-100">
+          請記下訂單編號/截圖。
+        </p>
         <Link href="/" className="text-blue-600 underline dark:text-blue-400">
           回首頁
         </Link>
