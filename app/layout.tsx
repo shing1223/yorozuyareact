@@ -76,6 +76,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-Hant">
+      <link rel="icon" href="/favicon.ico" sizes="32x32" />
       <body className="min-h-screen bg-white text-gray-900 antialiased">
         <div className="min-h-[100dvh] pb-[64px]" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))" }}>
           <Suspense fallback={null}>

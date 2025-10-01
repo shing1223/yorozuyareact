@@ -1,15 +1,37 @@
 {
-  "name": "IG 精選平台",
-  "short_name": "IG 精選",
+  "name": "萬事屋 MaxHse｜初創與網店的成長平台",
+  "short_name": "萬事屋",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ef4444",
-  "description": "以商戶為單位，公開展示在後台勾選的 Instagram 貼文",
+  "description": "萬事屋 MaxHse 是一個面向初創與網店的成長平台，集合具潛力的品牌與商店，提供零門檻曝光、資源配對與聯合行銷，幫助企業快速起步並有效降低宣傳成本。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable any" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/apple-touch-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }
