@@ -30,7 +30,7 @@ const routes: Record<FeatureLabel, string> = {
 
 export default function AppHeader({
   brand = "萬事屋",
-  handle = "@yorozuya",
+  handle = "@maxhse_com",
   activeFeature = "首頁", // ④ 使用 FeatureLabel
 }: {
   brand?: string

@@ -13,7 +13,7 @@ type TabLabel = "最新" | "熱門"
 
 export default function CollapsibleHeader({
   brand = "萬事屋",
-  handle = "@yorozuya",
+  handle = "@maxhse_com",
   features = [
     { label: "首頁", bg: "bg-red-500" },
     { label: "網店", bg: "bg-orange-500" },

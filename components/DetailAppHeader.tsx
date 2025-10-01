@@ -25,7 +25,7 @@ const FEATURE_COLORS_TEXT: Record<string, string> = {
 
 export default function DetailAppHeader({
   brand = "萬事屋",
-  handle = "@yorozuya",
+  handle = "@maxhse_com",
   activeFeature = "首頁",
   backHref,
   showFeatureRow = false, // 仍保留開關，但預設不顯示
