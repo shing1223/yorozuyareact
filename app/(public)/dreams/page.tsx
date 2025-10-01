@@ -34,8 +34,21 @@ export default async function DreamsPage() {
 
         {!dreams?.length ? (
           <div className="rounded-2xl border bg-white p-6 text-gray-500">
-            尚無夢想，成為第一個發佈的人吧！
-          </div>
+  請先
+  <a
+    href="/login"
+    className="mx-1 text-blue-600 underline hover:text-blue-800"
+  >
+    登入會員
+  </a>
+  /
+  <a
+    href="/register"
+    className="ml-1 text-blue-600 underline hover:text-blue-800"
+  >
+    成為會員
+  </a>
+</div>
         ) : (
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {dreams!.map((d) => (

@@ -17,13 +17,18 @@ export default async function DreamCreatePage() {
   return (
     <main className="mx-auto max-w-[1080px]">
       <AppHeader brand="萬事屋" handle="@maxhse_com" activeFeature="夢想" />
+
       <section className="px-4 py-6 pb-24">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">發佈你的夢想</h2>
-          <Link href="/dreams" className="text-sm text-gray-600 underline hover:text-gray-800">
+          <h2 className="text-xl font-bold dark:text-gray-100">發佈你的夢想</h2>
+          <Link
+            href="/dreams"
+            className="text-sm text-gray-600 underline hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
+          >
             回到清單
           </Link>
         </div>
+
         <NewDreamForm />
       </section>
     </main>
