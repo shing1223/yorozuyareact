@@ -79,8 +79,6 @@ export default async function DreamsPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
                     <span>發佈者：{d.display_name ?? "匿名"}</span>
-                    <span>支持：0</span>
-                    <span>反對：0</span>
                   </div>
                 </Link>
               </li>
