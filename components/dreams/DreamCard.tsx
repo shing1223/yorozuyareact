@@ -160,7 +160,7 @@ export default function DreamCard({ dream }: { dream: Dream }) {
               : "bg-white text-gray-800 border-gray-300 hover:bg-gray-50 " +
                 "dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"}`}
         >
-          支持（{up}）
+          支持🚀（{up}）
         </button>
         <button
           onClick={() => vote(-1)}
@@ -171,7 +171,7 @@ export default function DreamCard({ dream }: { dream: Dream }) {
               : "bg-white text-gray-800 border-gray-300 hover:bg-gray-50 " +
                 "dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"}`}
         >
-          反對（{down}）
+          冷靜思考❓（{down}）
         </button>
       </div>
 
