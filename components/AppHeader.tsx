@@ -86,7 +86,6 @@ export default function AppHeader({
             <span className={`align-middle inline-block mx-1 h-[14px] w-[52px] rounded-sm ${activeBar}`} />
             {brand}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{handle}</span>
         </div>
         <div className="flex items-center gap-2">
           <Link
