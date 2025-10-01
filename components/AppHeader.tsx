@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ShoppingCart } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
-import ThemeToggle from "@/components/ThemeToggle" // ← 新增
 
 export type FeatureLabel = "首頁" | "初創" | "服務" | "網店" | "夢想"
 type FeatureItem = { label: FeatureLabel; bgLight: string; bgDark: string; badge?: string }
@@ -96,9 +95,6 @@ export default function AppHeader({
           >
             <ShoppingCart size={20} />
           </Link>
-
-          {/* 主題切換 */}
-          <ThemeToggle />
 
           <NavDrawer activeFeature={activeFeature} />
         </div>

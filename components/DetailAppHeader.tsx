@@ -3,24 +3,29 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ShoppingCart, Menu, ChevronLeft } from "lucide-react"
+import { ShoppingCart, ChevronLeft } from "lucide-react"
 import NavDrawer from "@/components/NavDrawer"
 
-const FEATURE_COLORS_BG: Record<string, string> = {
-  首頁: "bg-red-500",
-  初創: "bg-pink-500",
-  服務: "bg-blue-500",
-  網店: "bg-orange-500",
-  其他: "bg-emerald-500",
+type Feature = "首頁" | "初創" | "服務" | "網店" | "夢想" | "其他"
+
+// 背景色（預留未來要顯示色條時使用），含 dark 對應
+const FEATURE_COLORS_BG: Record<Feature, string> = {
+  首頁: "bg-red-500 dark:bg-red-400",
+  初創: "bg-pink-500 dark:bg-pink-400",
+  服務: "bg-blue-500 dark:bg-blue-400",
+  網店: "bg-orange-500 dark:bg-orange-400",
+  夢想: "bg-pink-500 dark:bg-pink-400",
+  其他: "bg-emerald-500 dark:bg-emerald-400",
 }
 
-// 給返回箭頭用的文字色系
-const FEATURE_COLORS_TEXT: Record<string, string> = {
-  首頁: "text-red-500",
-  初創: "text-pink-500",
-  服務: "text-blue-500",
-  網店: "text-orange-500",
-  其他: "text-emerald-500",
+// 返回箭頭用文字色，含 dark 對應（維持色系在深色下仍清晰）
+const FEATURE_COLORS_TEXT: Record<Feature, string> = {
+  首頁: "text-red-600 dark:text-red-400",
+  初創: "text-pink-600 dark:text-pink-400",
+  服務: "text-blue-600 dark:text-blue-400",
+  網店: "text-orange-600 dark:text-orange-400",
+  夢想: "text-pink-600 dark:text-pink-400",
+  其他: "text-emerald-600 dark:text-emerald-400",
 }
 
 export default function DetailAppHeader({
@@ -32,7 +37,7 @@ export default function DetailAppHeader({
 }: {
   brand?: string
   handle?: string
-  activeFeature?: "首頁" | "初創" | "服務" | "網店" | "夢想"
+  activeFeature?: Feature
   backHref?: string
   showFeatureRow?: boolean
 }) {
@@ -40,11 +45,9 @@ export default function DetailAppHeader({
   const [rowH, setRowH] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
 
-  // 依來源設定顏色（箭頭用文字色、保留背景色以備未來擴充）
-  const activeBg = FEATURE_COLORS_BG[activeFeature] ?? "bg-red-500"
-  const activeText = FEATURE_COLORS_TEXT[activeFeature] ?? "text-red-500"
+  const activeBg = FEATURE_COLORS_BG[activeFeature] ?? "bg-red-500 dark:bg-red-400"
+  const activeText = FEATURE_COLORS_TEXT[activeFeature] ?? "text-red-600 dark:text-red-400"
 
-  // （若未來開啟 feature row 才需要）
   useLayoutEffect(() => {
     const el = rowRef.current
     if (!el) return
@@ -77,17 +80,21 @@ export default function DetailAppHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70"
+      className="sticky top-0 z-40 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70
+                 text-gray-900 border-b border-gray-200
+                 dark:bg-neutral-900/90 dark:supports-[backdrop-filter]:bg-neutral-900/70
+                 dark:text-gray-100 dark:border-neutral-800"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {/* 第一行：返回鍵 + 標題（箭頭依 activeFeature 上色） */}
-      <div className="flex items-center justify-between px-2 sm:px-4 py-3 border-b">
+      <div className="flex items-center justify-between px-2 sm:px-4 py-3">
         <div className="flex items-center gap-1.5 sm:gap-2">
           {backHref && (
             <Link
               href={backHref}
               aria-label="返回上一頁"
-              className={`p-2 rounded-lg hover:bg-gray-100 active:scale-95 ${activeText}`}
+              className={`p-2 rounded-lg hover:bg-gray-100 active:scale-95
+                          dark:hover:bg-neutral-800 ${activeText}`}
             >
               <ChevronLeft size={22} />
             </Link>
@@ -97,16 +104,18 @@ export default function DetailAppHeader({
           </span>
           {/* 若要顯示小色條，可把下一行解除註解 */}
           {/* <span className={`ml-2 hidden sm:inline-block h-[10px] w-[36px] rounded-sm ${activeBg}`} /> */}
-          {handle && <span className="ml-2 text-xs text-gray-500">{handle}</span>}
+          {handle && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{handle}</span>}
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 pr-1 sm:pr-0">
-          
-         <Link href="/cart" aria-label="購物車" className="p-2 rounded-lg hover:bg-gray-100 active:scale-95">
+          <Link
+            href="/cart"
+            aria-label="購物車"
+            className="p-2 rounded-lg hover:bg-gray-100 active:scale-95 dark:hover:bg-neutral-800"
+          >
             <ShoppingCart size={20} />
           </Link>
-          <NavDrawer activeFeature={activeFeature} />
-
+          <NavDrawer activeFeature={activeFeature as any} />
         </div>
       </div>
 
