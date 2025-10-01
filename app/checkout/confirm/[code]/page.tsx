@@ -6,15 +6,16 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"
 
 export const dynamic = "force-dynamic"
 
+// ✅ 同步：不要 async / await
 async function sbWithCode(code: string) {
-  const jar = await cookies() // ✅ Next 15：同步 API，不能 await
+  const jar = await cookies() // ← 同步 API
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // ✅ 新版 createServerClient 的 cookies 介面
+        // Next 15 的 cookies 介面
         getAll() {
           return jar.getAll()
         },
@@ -24,7 +25,7 @@ async function sbWithCode(code: string) {
           })
         },
       },
-      // ✅ 透過 header 傳遞查詢碼，配合你的 RLS
+      // 透過 header 傳遞查詢碼，配合 RLS
       global: {
         headers: { "X-Order-Code": code },
       },
@@ -35,6 +36,7 @@ async function sbWithCode(code: string) {
 type Props = { params: { code: string } }
 
 export default async function ConfirmPage({ params }: Props) {
+  // ✅ 同步建立，不用 await
   const supabase = await sbWithCode(params.code)
 
   // 1) 主檔（RLS 會用 X-Order-Code 放行）
@@ -50,10 +52,7 @@ export default async function ConfirmPage({ params }: Props) {
       <section className="px-4 py-6 pb-24">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">訂單確認</h2>
-          <Link
-            href="/"
-            className="text-sm text-gray-600 underline hover:text-gray-800"
-          >
+          <Link href="/" className="text-sm text-gray-600 underline hover:text-gray-800">
             回到首頁
           </Link>
         </div>
@@ -64,9 +63,7 @@ export default async function ConfirmPage({ params }: Props) {
             <p className="mt-2 text-gray-600">
               請確認你的查詢碼是否正確：<b>{params.code}</b>
             </p>
-            <Link href="/" className="mt-3 inline-block text-blue-600 underline">
-              回首頁
-            </Link>
+            <Link href="/" className="mt-3 inline-block text-blue-600 underline">回首頁</Link>
           </div>
         ) : (
           <ConfirmBody supabaseWithCode={supabase} order={order} />
@@ -128,18 +125,14 @@ async function ConfirmBody({
                 <div className="font-medium">{it.title}</div>
                 <div className="text-gray-500">@{it.merchant_slug}</div>
                 <div>數量：{it.qty}</div>
-                <div>
-                  單價：{it.currency} {Number(it.price).toLocaleString()}
-                </div>
+                <div>單價：{it.currency} {Number(it.price).toLocaleString()}</div>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      <Link href="/" className="text-blue-600 underline">
-        回首頁
-      </Link>
+      <Link href="/" className="text-blue-600 underline">回首頁</Link>
     </div>
   )
 }

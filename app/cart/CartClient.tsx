@@ -40,9 +40,13 @@ export default function CartClient() {
 
   if (!items.length) {
     return (
-      <div className="rounded-2xl border bg-white p-6">
-        <p className="text-gray-600">你的購物車目前是空的。</p>
-        <Link href="/" className="mt-3 inline-block text-blue-600 underline">
+      <div className="rounded-2xl border bg-white p-6 shadow-sm
+                      border-gray-200 dark:border-neutral-800 dark:bg-neutral-900">
+        <p className="text-gray-600 dark:text-gray-300">你的購物車目前是空的。</p>
+        <Link
+          href="/"
+          className="mt-3 inline-block text-blue-600 underline dark:text-blue-400"
+        >
           回首頁逛逛
         </Link>
       </div>
@@ -63,14 +67,16 @@ export default function CartClient() {
           return (
             <div
               key={`${it.merchant_slug}_${it.ig_media_id}`}
-              className="flex gap-4 rounded-lg border p-3"
+              className="flex gap-4 rounded-lg border p-3
+                         border-gray-200 bg-white shadow-sm
+                         dark:border-neutral-800 dark:bg-neutral-900"
             >
               {/* 圖片（避免空字串 src） */}
-              <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded bg-gray-100">
+              <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded bg-gray-100 dark:bg-neutral-800">
                 {hasImg ? (
-                  <Image src={it.image} alt={it.title} fill className="object-cover" />
+                  <Image src={it.image} alt={it.title || "商品圖片"} fill className="object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                  <div className="flex h-full w-full items-center justify-center text-xs text-gray-400 dark:text-gray-500">
                     無圖片
                   </div>
                 )}
@@ -80,11 +86,15 @@ export default function CartClient() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="truncate">
-                    <h3 className="truncate font-medium">{it.title}</h3>
-                    <div className="truncate text-sm text-gray-500">@{it.merchant_slug}</div>
+                    <h3 className="truncate font-medium text-gray-900 dark:text-gray-100">
+                      {it.title}
+                    </h3>
+                    <div className="truncate text-sm text-gray-500 dark:text-gray-400">
+                      @{it.merchant_slug}
+                    </div>
                   </div>
                   <button
-                    className="text-sm text-gray-500 hover:text-red-600"
+                    className="text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
                     onClick={() => onRemove(it)}
                   >
                     移除
@@ -92,17 +102,21 @@ export default function CartClient() {
                 </div>
 
                 <div className="mt-2 flex items-center gap-3">
-                  <label className="text-sm text-gray-600">數量</label>
+                  <label className="text-sm text-gray-600 dark:text-gray-300">數量</label>
                   <input
                     type="number"
                     min={1}
                     value={it.qty}
                     onChange={(e) => onQtyChange(it, Number(e.target.value || 1))}
-                    className="w-20 rounded border px-2 py-1"
+                    className="w-20 rounded border px-2 py-1
+                               border-gray-300 text-gray-900
+                               dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
                   />
                 </div>
 
-                <div className="mt-2 text-sm text-gray-600">單價：{unitLabel}</div>
+                <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  單價：{unitLabel}
+                </div>
 
                 {it.permalink && (
                   <div className="mt-2">
@@ -110,7 +124,7 @@ export default function CartClient() {
                       href={it.permalink}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm text-blue-600 underline"
+                      className="text-sm text-blue-600 underline dark:text-blue-400"
                     >
                       於 Instagram 開啟貼文
                     </a>
@@ -122,11 +136,11 @@ export default function CartClient() {
         })}
 
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-blue-600 underline">
+          <Link href="/" className="text-blue-600 underline dark:text-blue-400">
             ← 繼續逛逛
           </Link>
           <button
-            className="text-sm text-gray-500 hover:text-red-600"
+            className="text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
             onClick={() => {
               clearCart()
               setItems([])
@@ -138,17 +152,19 @@ export default function CartClient() {
       </section>
 
       {/* 右側：結帳摘要（多幣別分列） */}
-      <aside className="h-fit space-y-3 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">訂單摘要</h2>
+      <aside className="h-fit space-y-3 rounded-lg border p-4
+                        border-gray-200 bg-white shadow-sm
+                        dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">訂單摘要</h2>
 
         {!totalsByCurrency.length ? (
-          <div className="text-sm text-gray-500">—</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">—</div>
         ) : (
           <div className="space-y-1">
             {totalsByCurrency.map(({ currency, total }) => (
               <div key={currency} className="flex items-center justify-between">
-                <span>小計（{currency}）</span>
-                <span>
+                <span className="text-gray-700 dark:text-gray-300">小計（{currency}）</span>
+                <span className="text-gray-900 dark:text-gray-100">
                   {symbol(currency)} {total.toLocaleString()}
                 </span>
               </div>
@@ -156,10 +172,15 @@ export default function CartClient() {
           </div>
         )}
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           * 金額依幣別分列。若要「單幣別結帳（HKD）」請在加入購物車時統一帶入 HKD 單價與幣別。
         </p>
-        <Link href="/checkout" className="block w-full rounded-lg bg-black px-4 py-3 text-center text-white">
+        <Link
+          href="/checkout"
+          className="block w-full rounded-lg bg-black px-4 py-3 text-center text-white
+                     hover:opacity-95 active:scale-[0.99]
+                     dark:bg-white dark:text-black"
+        >
           前往結帳
         </Link>
       </aside>
