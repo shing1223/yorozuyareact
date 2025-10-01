@@ -50,8 +50,8 @@ export default async function Home() {
         href: "#",
       },
       {
-        title: "投資人",
-        name: "加入成為投資者",
+        title: "創投人",
+        name: "加入成為創投者",
         desc: "了解創作家的構想，與他們共同成長。",
         bg: "bg-blue-500",
         img: "/images/banner2.png",
