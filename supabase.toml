@@ -1,6 +1,4 @@
-# supabase.toml（專案根目錄）
-[functions.supabase-functions-toml-writer]
-verify_jwt = false
+project_id = "hvihsarnclxnwecpahfa"
 
 [functions.ig-refresh]
 verify_jwt = false
@@ -8,11 +6,12 @@ verify_jwt = false
 [functions.ig-sync-media]
 verify_jwt = false
 
-# ── 排程設定 ──
+# 每 12 小時跑一次
 [schedules.ig_refresh_cron]
-cron = "0 */12 * * *"     # 每 12 小時
+cron = "0 */12 * * *"
 endpoint = "ig-refresh"
 
+# 每 6 小時跑一次
 [schedules.ig_sync_media_cron]
-cron = "0 */6 * * *"      # 每 6 小時
+cron = "0 */6 * * *"
 endpoint = "ig-sync-media"
