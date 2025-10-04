@@ -15,6 +15,8 @@ type MerchantRow = {
 
 export default async function Home() {
   const supabase = await getSb()
+const proxied = (u?: string | null, slug?: string) =>
+  u ? `/api/ig-img?u=${encodeURIComponent(u)}&kind=avatar&slug=${encodeURIComponent(slug || "")}` : ""
 
   // 只取最新 12 位公開商戶（依建立時間倒序）
   const { data: merchants, error } = await supabase
@@ -132,12 +134,12 @@ export default async function Home() {
                 {/* 頭像：80px 圓形，object-contain 不裁切 */}
                 <div className="h-20 w-full flex items-center justify-center rounded-xl bg-gray-100 dark:bg-neutral-800">
                   {m.avatar_url ? (
-                    <img
-                      src={m.avatar_url}
-                      alt={`${m.name} avatar`}
-                      className="h-20 w-20 rounded-full object-contain bg-white dark:bg-neutral-900"
-                      loading="lazy"
-                    />
+                   <img
+  src={proxied(m.avatar_url, m.slug)}
+  alt={`${m.name} avatar`}
+  className="h-20 w-20 rounded-full object-contain bg-white dark:bg-neutral-900"
+  loading="lazy"
+/>
                   ) : (
                     <span className="text-gray-400 dark:text-gray-500 text-xs">封面</span>
                   )}

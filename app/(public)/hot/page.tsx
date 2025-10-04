@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic"
 
 export default async function HotPage() {
   const supabase = await getSb()
+// helpers
+const proxied = (u?: string | null, slug?: string) =>
+  u ? `/api/ig-img?u=${encodeURIComponent(u)}&kind=avatar&slug=${encodeURIComponent(slug || "")}` : ""
 
   // 暫定「熱門」：最近 30 天內公開商戶，按 created_at DESC
   const since = new Date()
@@ -53,11 +56,11 @@ export default async function HotPage() {
                 <div className="h-20 w-full rounded-xl bg-gray-100 dark:bg-neutral-800 grid place-items-center overflow-hidden">
                   {m.avatar_url ? (
                     <img
-                      src={m.avatar_url}
-                      alt={`${m.name} avatar`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+  src={proxied(m.avatar_url, m.slug)}
+  alt={`${m.name} avatar`}
+  className="h-20 w-20 rounded-full object-contain bg-white dark:bg-neutral-900"
+  loading="lazy"
+/>
                   ) : (
                     <span className="text-gray-400 dark:text-gray-500 text-xs">
                       封面
