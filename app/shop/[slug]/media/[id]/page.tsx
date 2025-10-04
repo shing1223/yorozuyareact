@@ -13,9 +13,12 @@ type FromKey = "startup" | "service" | "shop" | undefined
 const symbol = (cur?: string) => (cur === "HKD" ? "HK$" : cur === "TWD" ? "NT$" : cur ?? "")
 
 // 代理工具
-function proxied(u?: string | null) {
+function proxied(u?: string | null, slug?: string, igId?: string) {
   if (!u) return ""
-  return `/api/ig-img?u=${encodeURIComponent(u)}`
+  const qs = new URLSearchParams({ u })
+  if (slug) qs.set("slug", slug)
+  if (igId) qs.set("ig_id", igId)
+  return `/api/ig-img?${qs.toString()}`
 }
 
 // 最終占位圖
@@ -119,12 +122,12 @@ export default async function MediaDetail({ params, searchParams }: {
           <div className="border rounded-xl overflow-hidden bg-white shadow-sm
                           border-gray-200 dark:border-neutral-800 dark:bg-neutral-900">
             <IgImage
-              src={proxied(rawImg)}
-              thumb={item.thumbnail_url ? proxied(item.thumbnail_url) : undefined}
-              alt={title}
-              className="w-full object-cover"
-              fallback={FALLBACK_DATA_URL}
-            />
+  src={proxied(rawImg, slug, item.ig_media_id)}
+  thumb={item.thumbnail_url ? proxied(item.thumbnail_url, slug, item.ig_media_id) : undefined}
+  alt={title}
+  className="w-full object-cover"
+  fallback={FALLBACK_DATA_URL}
+/>
           </div>
 
           {/* 內容 */}

@@ -1,68 +1,76 @@
 // app/api/ig-img/route.ts
-export const runtime = "edge" // 或 "nodejs"，用 edge 通常延遲更低
+import { NextRequest, NextResponse } from "next/server";
 
-const ALLOW_HOSTS = [
-  "scontent.cdninstagram.com",
-  "scontent-iad3-1.cdninstagram.com",
-  "scontent-iad3-2.cdninstagram.com",
-  "instagram.c10r.facebook.com",
-  // 你遇到的其他變體都可加進來
-]
+export const runtime = "edge"; // 用 Next Edge Runtime（非必要，但延遲更低）
 
-export async function GET(req: Request) {
+const CORS_HEADERS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: CORS_HEADERS });
+}
+
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const u = searchParams.get("u")
-    if (!u) return new Response("missing url", { status: 400 })
-
-    // 安全白名單：只允許 IG CDN
-    const target = new URL(u)
-    if (!ALLOW_HOSTS.some(h => target.hostname.endsWith(h))) {
-      return new Response("forbidden host", { status: 403 })
+    const url = new URL(req.url);
+    const target = url.searchParams.get("u");
+    if (!target) {
+      return new NextResponse("Missing u", { status: 400, headers: CORS_HEADERS });
     }
 
-    // 向上游帶 Referer / UA（不少 403 是因為缺頭）
-    const upstream = await fetch(target.toString(), {
-      headers: {
-        "Accept": "image/avif,image/webp,image/*,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.instagram.com/",
-        // 常見桌面 UA；避免使用 fetch 預設 UA
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        // 你也可以視需要轉發 Range（如果之後要支援影片切片）
-        ...(req.headers.get("range") ? { Range: req.headers.get("range")! } : {}),
-      },
-      redirect: "follow",
-      // 對 IG 圖片，通常不需要 revalidate；交給 CDN 快取
-      cache: "no-store",
-    })
+    // 1) 先抓上游（帶基本 UA；Edge 環境本身不會帶 referrer）
+    let resp = await fetch(target, {
+      method: "GET",
+      headers: { "User-Agent": "Mozilla/5.0" },
+      referrerPolicy: "no-referrer",
+      cache: "reload",
+    });
 
-    if (!upstream.ok) {
-      // 把上游錯誤透傳回來，便於你在日誌看到真正的 code
-      return new Response(await upstream.text(), { status: upstream.status })
+    // 2) 若 403，可選擇觸發你部署的 Supabase Edge Function 去「急救重抓 media URL」
+    if (resp.status === 403) {
+      const slug = url.searchParams.get("slug") || undefined;
+      const ig_id = url.searchParams.get("ig_id") || undefined;
+
+      if (slug && ig_id && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        const syncUrl = new URL(
+          `/functions/v1/ig-sync-media?slug=${encodeURIComponent(slug)}&ig_id=${encodeURIComponent(ig_id)}`,
+          process.env.NEXT_PUBLIC_SUPABASE_URL
+        ).toString();
+
+        // 你的 ig-sync-media 設了 verify_jwt=false 的話可以直接打
+        // 如需授權，加上 Authorization header
+        await fetch(syncUrl, { method: "GET" });
+
+        // 重試一次原圖
+        resp = await fetch(target, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          referrerPolicy: "no-referrer",
+          cache: "reload",
+        });
+      }
     }
 
-    // 從上游沿用 Content-Type / Content-Length（如有）
-    const ct = upstream.headers.get("content-type") ?? "image/jpeg"
-    const len = upstream.headers.get("content-length") ?? undefined
-    const acceptRanges = upstream.headers.get("accept-ranges") ?? undefined
-    const status = upstream.status // 206 for ranged response
+    if (!resp.ok) {
+      return new NextResponse("upstream error", {
+        status: resp.status,
+        headers: CORS_HEADERS,
+      });
+    }
 
-    // CDN 快取：7 天 + SWR 1 天（可自行調整）
-    const cacheCtl = "public, s-maxage=604800, stale-while-revalidate=86400"
+    const buf = await resp.arrayBuffer();
+    const headers = new Headers(CORS_HEADERS);
+    headers.set("content-type", resp.headers.get("content-type") ?? "image/jpeg");
+    headers.set("cache-control", "public, max-age=21600"); // 6 小時
+    headers.set("referrer-policy", "no-referrer");
 
-    return new Response(upstream.body, {
-      status,
-      headers: {
-        "Content-Type": ct,
-        ...(len ? { "Content-Length": len } : {}),
-        ...(acceptRanges ? { "Accept-Ranges": acceptRanges } : {}),
-        "Cache-Control": cacheCtl,
-      },
-    })
-  } catch (err) {
-    return new Response("proxy error", { status: 500 })
+    return new NextResponse(buf, { headers });
+  } catch (e: any) {
+    return new NextResponse(`proxy error: ${e?.message || String(e)}`, {
+      status: 500,
+      headers: CORS_HEADERS,
+    });
   }
 }
