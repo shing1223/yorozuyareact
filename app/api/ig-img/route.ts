@@ -1,76 +1,54 @@
 // app/api/ig-img/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server"
 
-export const runtime = "edge"; // 用 Next Edge Runtime（非必要，但延遲更低）
-
-const CORS_HEADERS: Record<string, string> = {
+const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, OPTIONS",
   "access-control-allow-headers": "content-type",
-};
+}
 
 export async function OPTIONS() {
-  return new NextResponse(null, { headers: CORS_HEADERS });
+  return new Response(null, { headers: CORS })
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const target = url.searchParams.get("u");
-    if (!target) {
-      return new NextResponse("Missing u", { status: 400, headers: CORS_HEADERS });
+    const raw = req.nextUrl.searchParams.get("u")
+    if (!raw) return new Response("Missing u", { status: 400, headers: CORS })
+
+    // ★ 把前端傳來的（可能被 encode 過的）網址統一解一次
+    const target = decodeURIComponent(raw)
+
+    // 轉抓（不帶 referer；補常見 Accept/User-Agent）
+    const upstream = await fetch(target, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+      // cf/next 也不會自動帶 referrer
+      redirect: "follow",
+    })
+
+    // 可選：403 時觸發你的 Edge Function 急救（略）
+    // if (upstream.status === 403) { ... }
+
+    if (!upstream.ok) {
+      return new Response("upstream error", {
+        status: upstream.status,
+        headers: CORS,
+      })
     }
 
-    // 1) 先抓上游（帶基本 UA；Edge 環境本身不會帶 referrer）
-    let resp = await fetch(target, {
-      method: "GET",
-      headers: { "User-Agent": "Mozilla/5.0" },
-      referrerPolicy: "no-referrer",
-      cache: "reload",
-    });
-
-    // 2) 若 403，可選擇觸發你部署的 Supabase Edge Function 去「急救重抓 media URL」
-    if (resp.status === 403) {
-      const slug = url.searchParams.get("slug") || undefined;
-      const ig_id = url.searchParams.get("ig_id") || undefined;
-
-      if (slug && ig_id && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        const syncUrl = new URL(
-          `/functions/v1/ig-sync-media?slug=${encodeURIComponent(slug)}&ig_id=${encodeURIComponent(ig_id)}`,
-          process.env.NEXT_PUBLIC_SUPABASE_URL
-        ).toString();
-
-        // 你的 ig-sync-media 設了 verify_jwt=false 的話可以直接打
-        // 如需授權，加上 Authorization header
-        await fetch(syncUrl, { method: "GET" });
-
-        // 重試一次原圖
-        resp = await fetch(target, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-          referrerPolicy: "no-referrer",
-          cache: "reload",
-        });
-      }
-    }
-
-    if (!resp.ok) {
-      return new NextResponse("upstream error", {
-        status: resp.status,
-        headers: CORS_HEADERS,
-      });
-    }
-
-    const buf = await resp.arrayBuffer();
-    const headers = new Headers(CORS_HEADERS);
-    headers.set("content-type", resp.headers.get("content-type") ?? "image/jpeg");
-    headers.set("cache-control", "public, max-age=21600"); // 6 小時
-    headers.set("referrer-policy", "no-referrer");
-
-    return new NextResponse(buf, { headers });
+    // 回傳串流 + 快取
+    const h = new Headers(CORS)
+    h.set("content-type", upstream.headers.get("content-type") ?? "image/jpeg")
+    h.set("cache-control", "public, max-age=21600") // 6 小時
+    h.set("referrer-policy", "no-referrer")
+    return new Response(upstream.body, { headers: h })
   } catch (e: any) {
-    return new NextResponse(`proxy error: ${e?.message || String(e)}`, {
+    return new Response(`proxy error: ${e?.message || e}`, {
       status: 500,
-      headers: CORS_HEADERS,
-    });
+      headers: CORS,
+    })
   }
 }
