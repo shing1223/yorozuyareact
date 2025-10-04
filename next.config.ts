@@ -1,14 +1,13 @@
-// next.config.ts（備用寫法）
+// next.config.ts
 import type { NextConfig } from "next"
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// 用 require 匯入 next-pwa（它本身是 CJS）
 const withPWA = require("next-pwa")({
   dest: "public",
   disable: process.env.NODE_ENV !== "production",
   register: true,
   skipWaiting: true,
-  buildExcludes: [/middleware-manifest\.json$/],
-  runtimeCaching: [/* 同上 */],
+  // 可依需要補 runtimeCaching
 })
 
 const nextConfig: NextConfig = {
@@ -19,6 +18,17 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "scontent.cdninstagram.com" },
       { protocol: "https", hostname: "instagram.com" },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // 降低 IG CDN 的熱鏈接拒絕率
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ]
   },
 }
 

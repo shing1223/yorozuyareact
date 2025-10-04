@@ -12,6 +12,25 @@ type FromKey = "startup" | "service" | "shop" | undefined
 const symbol = (cur?: string) =>
   cur === "HKD" ? "HK$" : cur === "TWD" ? "NT$" : cur ?? ""
 
+// ✅ 將 IG 圖檔改走本站代理，避免桌機偶發 403
+function proxied(u?: string | null) {
+  if (!u) return ""
+  return `/api/ig-img?u=${encodeURIComponent(u)}`
+}
+
+// ✅ 產生極簡 SVG 畫面當最後備援
+const FALLBACK_DATA_URL =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'>
+       <rect width='100%' height='100%' fill='#eee'/>
+       <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
+             font-family='system-ui, sans-serif' font-size='14' fill='#888'>
+         image unavailable
+       </text>
+     </svg>`
+  )
+
 export default async function MediaDetail({
   params,
   searchParams,
@@ -59,7 +78,7 @@ export default async function MediaDetail({
   const currency = (product?.currency as string | null) ?? "TWD"
   const productTitle = (product?.title as string | null) ?? null
 
-  const img =
+  const rawImg =
     item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
 
   const title =
@@ -92,7 +111,7 @@ export default async function MediaDetail({
     merchant_slug: item.merchant_slug,
     ig_media_id: item.ig_media_id,
     title,
-    image: img!,
+    image: rawImg!,               // ✅ 這裡仍存原始網址；渲染時再 proxy
     permalink: item.permalink,
     caption: item.caption || "",
     price: price ?? undefined,
@@ -115,11 +134,22 @@ export default async function MediaDetail({
           <div className="border rounded-xl overflow-hidden bg-white shadow-sm
                           border-gray-200 dark:border-neutral-800 dark:bg-neutral-900">
             <img
-              src={img!}
+              src={proxied(rawImg)}       // ✅ 代理後的網址
               alt={title}
               className="w-full object-cover"
               loading="lazy"
               draggable={false}
+              referrerPolicy="no-referrer" // ✅ 不帶 referrer，雙保險
+              onError={(e) => {
+                const el = e.currentTarget as HTMLImageElement
+                // 先退到縮圖
+                if (item.thumbnail_url && el.src !== proxied(item.thumbnail_url)) {
+                  el.src = proxied(item.thumbnail_url)
+                } else if (el.src !== FALLBACK_DATA_URL) {
+                  // 再退到極簡 placeholder
+                  el.src = FALLBACK_DATA_URL
+                }
+              }}
             />
           </div>
 

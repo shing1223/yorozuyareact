@@ -4,6 +4,12 @@ import DetailAppHeader from "@/components/DetailAppHeader"
 import { getSb } from "@/lib/supabaseServer"
 import { Play } from "lucide-react"
 import { headers } from "next/headers"
+import IgImage from "@/components/IgImage"  // ⬅ 新增
+
+function proxied(u?: string | null) {
+  if (!u) return ""
+  return `/api/ig-img?u=${encodeURIComponent(u)}`
+}
 
 export const dynamic = "force-dynamic"
 
@@ -97,22 +103,21 @@ export default async function ShopPage({
                              dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
                 >
                   <div className="relative">
-                    <img
-                      src={img!}
-                      alt=""
-                      className="h-auto w-full aspect-square object-cover"
-                      loading="lazy"
-                      draggable={false}
-                    />
-                    {m.media_type === "VIDEO" && (
-                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full
-                                       bg-black/70 px-2 py-1 text-[10px] font-medium text-white
-                                       backdrop-blur supports-[backdrop-filter]:bg-black/60">
-                        <Play size={12} />
-                        影片
-                      </span>
-                    )}
-                  </div>
+  <IgImage
+    src={proxied(img)}
+    thumb={m.thumbnail_url ? proxied(m.thumbnail_url) : undefined}
+    alt=""
+    className="h-auto w-full aspect-square object-cover"
+  />
+  {m.media_type === "VIDEO" && (
+    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full
+                     bg-black/70 px-2 py-1 text-[10px] font-medium text-white
+                     backdrop-blur supports-[backdrop-filter]:bg-black/60">
+      <Play size={12} />
+      影片
+    </span>
+  )}
+</div>
                   <div className="p-3">
                     <p className="line-clamp-2 text-sm text-gray-800 dark:text-gray-200">
                       {m.caption}
