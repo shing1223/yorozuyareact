@@ -2,6 +2,13 @@
 import Link from "next/link"
 import AppHeader from "@/components/AppHeader"
 import { getSb } from "@/lib/supabaseServer"
+import IgImage from "@/components/IgImage"
+
+function proxied(u?: string | null, slug?: string) {
+  if (!u) return ""
+  // 帶 slug 方便 edge function 做「單商戶急救」
+  return `/api/ig-img?u=${encodeURIComponent(u)}&slug=${slug}&kind=avatar`
+}
 
 export const dynamic = "force-dynamic"
 
@@ -43,17 +50,18 @@ export default async function CategoriesPage() {
                            border-gray-200 dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none"
               >
                 <div className="h-40 w-full flex items-center justify-center bg-gray-100 dark:bg-neutral-800 rounded-xl">
-                  {m.avatar_url ? (
-                    <img
-                      src={m.avatar_url}
-                      alt={`${m.name} avatar`}
-                      className="h-20 w-20 rounded-full object-contain bg-white dark:bg-neutral-900"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-500 text-xs">封面</span>
-                  )}
-                </div>
+  {m.avatar_url ? (
+    <IgImage
+      src={proxied(m.avatar_url, m.slug)}
+      alt={`${m.name} avatar`}
+      className="h-20 w-20 rounded-full object-contain bg-white dark:bg-neutral-900"
+      thumb={undefined}
+      // 也可放一個超小 data URL 當 fallback
+    />
+  ) : (
+    <span className="text-gray-400 dark:text-gray-500 text-xs">封面</span>
+  )}
+</div>
                 <div className="mt-2 line-clamp-1 font-semibold group-hover:underline text-gray-900 dark:text-gray-100">
                   {m.name}
                 </div>

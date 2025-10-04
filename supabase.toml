@@ -1,5 +1,8 @@
 project_id = "hvihsarnclxnwecpahfa"
 
+[functions.supabase-functions-toml-writer]
+verify_jwt = false
+
 [functions.ig-refresh]
 verify_jwt = false
 
