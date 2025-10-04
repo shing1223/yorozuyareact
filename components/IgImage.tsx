@@ -1,40 +1,36 @@
 // components/IgImage.tsx
 "use client"
 
-import { useState } from "react"
-
-const FALLBACK =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'>
-       <rect width='100%' height='100%' fill='#eee'/>
-       <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
-             font-family='system-ui, sans-serif' font-size='14' fill='#888'>
-         image unavailable
-       </text>
-     </svg>`
-  )
+import { useState, useEffect } from "react"
 
 type Props = {
-  src: string
-  thumb?: string
+  src: string            // 代理後的大圖
+  thumb?: string         // 備援縮圖（也建議用代理）
   alt?: string
   className?: string
+  fallback?: string      // 最後的 data: 占位圖
 }
 
-export default function IgImage({ src, thumb, alt = "", className }: Props) {
-  const [cur, setCur] = useState(src)
+export default function IgImage({ src, thumb, alt = "", className, fallback }: Props) {
+  const [url, setUrl] = useState(src)
+
+  useEffect(() => { setUrl(src) }, [src])
+
   return (
+    // 注意：這是 client component，onError 合法
     <img
-      src={cur}
+      src={url}
       alt={alt}
       className={className}
       loading="lazy"
       draggable={false}
       referrerPolicy="no-referrer"
       onError={() => {
-        if (thumb && cur !== thumb) setCur(thumb)
-        else if (cur !== FALLBACK) setCur(FALLBACK)
+        if (thumb && url !== thumb) {
+          setUrl(thumb)         // 先退縮圖
+        } else if (fallback && url !== fallback) {
+          setUrl(fallback)      // 再退占位圖
+        }
       }}
     />
   )

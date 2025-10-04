@@ -5,20 +5,20 @@ import AddToCartButton from "@/components/AddToCartButton"
 import type { CartItemInput } from "@/types/cart"
 import { getSb } from "@/lib/supabaseServer"
 import { headers } from "next/headers"
+import IgImage from "@/components/IgImage"   // ✅ 新增
 
 export const dynamic = "force-dynamic"
 
 type FromKey = "startup" | "service" | "shop" | undefined
-const symbol = (cur?: string) =>
-  cur === "HKD" ? "HK$" : cur === "TWD" ? "NT$" : cur ?? ""
+const symbol = (cur?: string) => (cur === "HKD" ? "HK$" : cur === "TWD" ? "NT$" : cur ?? "")
 
-// ✅ 將 IG 圖檔改走本站代理，避免桌機偶發 403
+// 代理工具
 function proxied(u?: string | null) {
   if (!u) return ""
   return `/api/ig-img?u=${encodeURIComponent(u)}`
 }
 
-// ✅ 產生極簡 SVG 畫面當最後備援
+// 最終占位圖
 const FALLBACK_DATA_URL =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -31,14 +31,10 @@ const FALLBACK_DATA_URL =
      </svg>`
   )
 
-export default async function MediaDetail({
-  params,
-  searchParams,
-}: {
+export default async function MediaDetail({ params, searchParams }: {
   params: Promise<{ slug: string; id: string }>
   searchParams: Promise<{ from?: FromKey }>
 }) {
-  // ✅ Next 15 async params/searchParams
   const { slug, id } = await params
   const { from } = await searchParams
 
@@ -47,9 +43,7 @@ export default async function MediaDetail({
   // ① 取公開貼文
   const { data: item, error } = await supabase
     .from("v_public_feed")
-    .select(
-      "merchant_slug, ig_media_id, media_type, media_url, thumbnail_url, caption, permalink, timestamp"
-    )
+    .select("merchant_slug, ig_media_id, media_type, media_url, thumbnail_url, caption, permalink, timestamp")
     .eq("merchant_slug", slug)
     .eq("ig_media_id", id)
     .maybeSingle()
@@ -65,7 +59,7 @@ export default async function MediaDetail({
     )
   }
 
-  // ② 取貼文定價（media_product → products）
+  // ② 定價
   const { data: bind } = await supabase
     .from("media_product")
     .select("product:product_id(id, title, price, currency)")
@@ -78,8 +72,7 @@ export default async function MediaDetail({
   const currency = (product?.currency as string | null) ?? "TWD"
   const productTitle = (product?.title as string | null) ?? null
 
-  const rawImg =
-    item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
+  const rawImg = item.media_type === "VIDEO" ? item.thumbnail_url ?? item.media_url : item.media_url
 
   const title =
     (item.caption || "")
@@ -87,23 +80,15 @@ export default async function MediaDetail({
       .map((s: string) => s.trim())
       .filter(Boolean)[0] || productTitle || `@${item.merchant_slug} 的精選貼文`
 
-  // ===== 來源與返回設定 =====
+  // 來源/返回
   const headerList = await headers()
   const referer = headerList.get("referer") || ""
-
   let activeFeature: "首頁" | "初創" | "服務" | "網店" | "其他" = "首頁"
   let fromKey: "startup" | "service" | "shop" | "" = ""
 
-  if (from === "startup" || referer.includes("/startup")) {
-    activeFeature = "初創"
-    fromKey = "startup"
-  } else if (from === "service" || referer.includes("/service")) {
-    activeFeature = "服務"
-    fromKey = "service"
-  } else if (from === "shop" || referer.includes("/shop")) {
-    activeFeature = "網店"
-    fromKey = "shop"
-  }
+  if (from === "startup" || referer.includes("/startup")) { activeFeature = "初創"; fromKey = "startup" }
+  else if (from === "service" || referer.includes("/service")) { activeFeature = "服務"; fromKey = "service" }
+  else if (from === "shop" || referer.includes("/shop")) { activeFeature = "網店"; fromKey = "shop" }
 
   const backHref = `/shop/${slug}?from=${from ?? fromKey}`
 
@@ -111,7 +96,7 @@ export default async function MediaDetail({
     merchant_slug: item.merchant_slug,
     ig_media_id: item.ig_media_id,
     title,
-    image: rawImg!,               // ✅ 這裡仍存原始網址；渲染時再 proxy
+    image: rawImg!,            // 存原始；渲染時再 proxy
     permalink: item.permalink,
     caption: item.caption || "",
     price: price ?? undefined,
@@ -130,26 +115,15 @@ export default async function MediaDetail({
 
       <section className="px-4 py-6 pb-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* 圖片卡片 */}
+          {/* 圖片卡片（用 Client 的 IgImage） */}
           <div className="border rounded-xl overflow-hidden bg-white shadow-sm
                           border-gray-200 dark:border-neutral-800 dark:bg-neutral-900">
-            <img
-              src={proxied(rawImg)}       // ✅ 代理後的網址
+            <IgImage
+              src={proxied(rawImg)}
+              thumb={item.thumbnail_url ? proxied(item.thumbnail_url) : undefined}
               alt={title}
               className="w-full object-cover"
-              loading="lazy"
-              draggable={false}
-              referrerPolicy="no-referrer" // ✅ 不帶 referrer，雙保險
-              onError={(e) => {
-                const el = e.currentTarget as HTMLImageElement
-                // 先退到縮圖
-                if (item.thumbnail_url && el.src !== proxied(item.thumbnail_url)) {
-                  el.src = proxied(item.thumbnail_url)
-                } else if (el.src !== FALLBACK_DATA_URL) {
-                  // 再退到極簡 placeholder
-                  el.src = FALLBACK_DATA_URL
-                }
-              }}
+              fallback={FALLBACK_DATA_URL}
             />
           </div>
 
@@ -163,23 +137,14 @@ export default async function MediaDetail({
               {item.caption || "—"}
             </div>
 
-            {/* 定價 */}
             <div className="pt-2">
               <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {price != null
-                  ? `${symbol(currency)} ${Number(price).toLocaleString()}`
-                  : "—"}
+                {price != null ? `${symbol(currency)} ${Number(price).toLocaleString()}` : "—"}
               </span>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <AddToCartButton
-                item={{
-                  ...cartItem,
-                  price: price ?? 0,
-                  currency,
-                }}
-              />
+              <AddToCartButton item={{ ...cartItem, price: price ?? 0, currency }} />
               <a
                 href={item.permalink!}
                 target="_blank"
@@ -193,10 +158,7 @@ export default async function MediaDetail({
             </div>
 
             <div className="pt-4">
-              <Link
-                href={backHref}
-                className="text-blue-600 underline dark:text-blue-400"
-              >
+              <Link href={backHref} className="text-blue-600 underline dark:text-blue-400">
                 ← 返回 @{item.merchant_slug} 貼文列表
               </Link>
             </div>
