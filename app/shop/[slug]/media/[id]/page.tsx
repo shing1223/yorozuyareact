@@ -140,21 +140,22 @@ export default async function MediaDetail({ params, searchParams }: {
               {item.caption || "—"}
             </div>
 
-            <div className="pt-2">
-              <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {price != null ? `${symbol(currency)} ${Number(price).toLocaleString()}` : "—"}
-              </span>
-            </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-  {/* ✅ 價格大於 0 時才顯示加入購物車按鈕 */}
+            {/* 定價區塊 */}
+<div className="pt-2">
   {price && price > 0 ? (
-    <AddToCartButton item={{ ...cartItem, price, currency }} />
+    <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+      {`${symbol(currency)} ${Number(price).toLocaleString()}`}
+    </span>
   ) : (
-    <p className="text-sm text-gray-500 dark:text-gray-400 sm:self-center">
-      請洽商戶了解詳情
-    </p>
+    <p className="text-sm text-gray-500 dark:text-gray-400">請洽商戶了解詳情</p>
   )}
+</div>
+
+{/* 加入購物車 / IG 開啟按鈕 */}
+<div className="flex flex-col sm:flex-row gap-3 pt-2">
+  {typeof price === "number" && price > 0 ? (
+    <AddToCartButton item={{ ...cartItem, price, currency }} />
+  ) : null}
 
   <a
     href={item.permalink!}
