@@ -146,19 +146,23 @@ export default async function MediaDetail({ params, searchParams }: {
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <AddToCartButton item={{ ...cartItem, price: price ?? 0, currency }} />
-              <a
-                href={item.permalink!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-lg border
-                           border-gray-300 hover:bg-gray-50 active:scale-[0.99]
-                           dark:border-neutral-700 dark:hover:bg-neutral-800"
-              >
-                於 Instagram 開啟
-              </a>
-            </div>
+           <div className="flex flex-col sm:flex-row gap-3 pt-2">
+  {/* ✅ 價格大於 0 時才顯示按鈕 */}
+  {price && price > 0 ? (
+    <AddToCartButton item={{ ...cartItem, price, currency }} />
+  ) : null}
+
+  <a
+    href={item.permalink!}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center justify-center px-4 py-3 rounded-lg border
+               border-gray-300 hover:bg-gray-50 active:scale-[0.99]
+               dark:border-neutral-700 dark:hover:bg-neutral-800"
+  >
+    於 Instagram 開啟
+  </a>
+</div>
 
             <div className="pt-4">
               <Link href={backHref} className="text-blue-600 underline dark:text-blue-400">
