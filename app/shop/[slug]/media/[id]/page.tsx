@@ -146,11 +146,15 @@ export default async function MediaDetail({ params, searchParams }: {
               </span>
             </div>
 
-           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-  {/* ✅ 價格大於 0 時才顯示按鈕 */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+  {/* ✅ 價格大於 0 時才顯示加入購物車按鈕 */}
   {price && price > 0 ? (
     <AddToCartButton item={{ ...cartItem, price, currency }} />
-  ) : null}
+  ) : (
+    <p className="text-sm text-gray-500 dark:text-gray-400 sm:self-center">
+      請洽商戶了解詳情
+    </p>
+  )}
 
   <a
     href={item.permalink!}
