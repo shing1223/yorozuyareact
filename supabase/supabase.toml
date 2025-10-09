@@ -1,22 +1,16 @@
-# supabase/supabase.toml
-# （可選，但建議加上）
 [project]
 ref = "hvihsarnclxnwecpahfa"
 
-# === Edge Functions 設定 ===
 [functions.ig-refresh]
 verify_jwt = false
 
-[functions.ig-sync-media]
-verify_jwt = false
-
-# === Edge Schedules（UTC 時間）===
-# 每 12 小時刷新 IG 長期 Token
 [schedules.ig_refresh_cron]
 cron = "0 */12 * * *"
 endpoint = "ig-refresh"
 
-# 每晚 03:00（UTC）同步一次媒體（依需要調整）
-[schedules.ig_sync_media_nightly]
-cron = "0 3 * * *"
+[functions.ig-sync-media]
+verify_jwt = false
+
+[schedules.ig_sync_media_cron]
+cron = "0 */6 * * *"
 endpoint = "ig-sync-media"
