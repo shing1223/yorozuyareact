@@ -109,6 +109,37 @@ export default async function DashboardHome() {
         </div>
       )}
 
+      {/* 收款設定（Stripe Connect） */}
+<section className="space-y-3 rounded border p-4">
+  <h2 className="text-lg font-medium">收款設定</h2>
+
+  {/* 從 merchants 取出 stripe 狀態 */}
+  {/*
+    你也可以先在上面那段 SSR 查詢 merchants 的 stripe_* 欄位，
+    這裡為簡潔起見，用「快速方案」：讓使用者直接點連結，
+    連線成功返回 /dashboard?stripe=connected
+  */}
+  <div className="space-y-2">
+    <a
+      href={`/api/stripe/connect/start?merchant=${merchant}`}
+      className="inline-flex items-center rounded bg-black px-3 py-2 text-white hover:opacity-90"
+    >
+      連結 Stripe（Express）
+    </a>
+
+    <div className="text-sm text-gray-500">
+      已連線的商戶可使用：
+      <a
+        href={`/api/stripe/connect/login?merchant=${merchant}`}
+        className="ml-1 underline"
+      >
+        開啟 Stripe 商家後台
+      </a>
+      ．若未完成認證，系統會引導你繼續。
+    </div>
+  </div>
+</section>
+
       <section className="space-y-2">
         <h2 className="text-lg font-medium">媒體清單（勾選發佈 & 設定價格）</h2>
 

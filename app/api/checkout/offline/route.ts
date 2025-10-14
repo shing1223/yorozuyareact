@@ -6,6 +6,7 @@ import { createServerClient } from '@supabase/ssr'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// --- Supabase server client（Next 15：cookies getAll/setAll） ---
 async function sb() {
   const jar = await cookies()
   return createServerClient(
@@ -13,7 +14,9 @@ async function sb() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return jar.getAll() },
+        getAll() {
+          return jar.getAll()
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             jar.set({ name, value, ...options })
@@ -24,7 +27,26 @@ async function sb() {
   )
 }
 
-type CartItem = {
+// 產生 8 碼訂單編號
+function genOrderCode() {
+  return (
+    Math.random().toString(36).slice(2, 6).toUpperCase() +
+    Math.random().toString(36).slice(2, 6).toUpperCase()
+  )
+}
+
+// 安全數值
+const asInt = (v: unknown, d = 0) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.floor(n) : d
+}
+const asMoney = (v: unknown, d = 0) => {
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 0 ? n : d
+}
+
+// 型別（與前端一致）
+type CartItemInput = {
   merchant_slug: string
   ig_media_id: string
   title: string
@@ -36,90 +58,130 @@ type CartItem = {
   qty: number
 }
 
+type Incoming = {
+  customer: { name: string; email: string; phone: string }
+  shipping: { country: string; city: string; address: string; postal_code?: string }
+  note?: string
+  items: CartItemInput[]
+}
+
 export async function POST(req: Request) {
   try {
-    const payload = await req.json()
-    const {
-      customer, shipping, note, items,
-    }: {
-      customer: { name: string; email: string; phone: string }
-      shipping: { country: string; city: string; address: string; postal_code?: string }
-      note?: string
-      items: CartItem[]
-    } = payload
-
-    if (!customer?.name || !customer?.email || !customer?.phone)
-      return NextResponse.json({ error: 'bad_request', detail: 'missing customer' }, { status: 400 })
-    if (!shipping?.country || !shipping?.city || !shipping?.address)
-      return NextResponse.json({ error: 'bad_request', detail: 'missing shipping' }, { status: 400 })
-    if (!Array.isArray(items) || items.length === 0)
-      return NextResponse.json({ error: 'bad_request', detail: 'empty items' }, { status: 400 })
-
-    // 小計
-    const currencyTotals: Record<string, number> = {}
-    const merchantTotals: Record<string, Record<string, number>> = {}
-    for (const it of items) {
-      const cur = (it.currency || 'HKD').toUpperCase()
-      const p = typeof it.price === 'number' ? it.price : 0
-      const line = p * Math.max(1, Number(it.qty || 1))
-      currencyTotals[cur] = (currencyTotals[cur] || 0) + line
-      merchantTotals[it.merchant_slug] ??= {}
-      merchantTotals[it.merchant_slug][cur] =
-        (merchantTotals[it.merchant_slug][cur] || 0) + line
-    }
-
-    // 產生 code & 預先給 orderId（避開 RETURNING）
-    const orderCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-    const orderId = crypto.randomUUID()
-
     const supabase = await sb()
-    const { data: authUser } = await supabase.auth.getUser()
+    const body = (await req.json()) as Incoming
 
-    // 1) 插入 orders —— 不要 .select()、不要 options.returning
-    {
-      const { error } = await supabase
-        .from('orders')
-        .insert({
-          id: orderId,
-          order_code: orderCode,
-          user_id: authUser.user?.id ?? null,
-          customer_name: customer.name,
-          customer_email: customer.email,
-          customer_phone: customer.phone,
-          shipping_address: shipping,
-          note: note ?? null,
-          payment_method: 'OFFLINE',
-          payment_status: 'UNPAID',
-          currency_totals: currencyTotals,
-          merchant_totals: merchantTotals,
-        }) // ← 沒有 .select()，自帶 return=minimal
-      if (error) {
-        return NextResponse.json({ error: 'create_order_failed', detail: error.message }, { status: 500 })
-      }
+    // --- 驗證 ---
+    if (!body?.items?.length) {
+      return NextResponse.json({ error: 'empty_cart' }, { status: 400 })
+    }
+    if (
+      !body.customer?.name?.trim() ||
+      !body.customer?.email?.trim() ||
+      !body.customer?.phone?.trim()
+    ) {
+      return NextResponse.json(
+        { error: 'bad_request', detail: 'missing customer fields' },
+        { status: 400 }
+      )
+    }
+    if (
+      !body.shipping?.country?.trim() ||
+      !body.shipping?.city?.trim() ||
+      !body.shipping?.address?.trim()
+    ) {
+      return NextResponse.json(
+        { error: 'bad_request', detail: 'missing shipping fields' },
+        { status: 400 }
+      )
     }
 
-    // 2) 插入 order_items —— 同樣不要 .select() / options.returning
-    const rows = items.map((it: CartItem) => ({
-      order_id: orderId,
+    // 取得登入者（可為 null）
+    const { data: userRes } = await supabase.auth.getUser()
+    const user_id = userRes?.user?.id ?? null
+
+    // --- 計算合計：依幣別、依商戶 ---
+    const totalsByCurrency = new Map<string, number>()
+    const totalsByMerchant = new Map<string, Map<string, number>>() // merchant -> currency -> total
+
+    for (const raw of body.items) {
+      const cur = (raw.currency || 'HKD').toUpperCase()
+      const price = asMoney(raw.price, 0)
+      const qty = Math.max(1, asInt(raw.qty, 1))
+      const line = price * qty
+
+      totalsByCurrency.set(cur, (totalsByCurrency.get(cur) || 0) + line)
+
+      const perMerchant = totalsByMerchant.get(raw.merchant_slug) || new Map<string, number>()
+      perMerchant.set(cur, (perMerchant.get(cur) || 0) + line)
+      totalsByMerchant.set(raw.merchant_slug, perMerchant)
+    }
+
+    const currency_totals = Object.fromEntries(totalsByCurrency.entries())
+    const merchant_totals = Object.fromEntries(
+      Array.from(totalsByMerchant.entries()).map(([m, mp]) => [m, Object.fromEntries(mp.entries())])
+    )
+
+    const order_code = genOrderCode()
+
+    // --- 建立 orders ---
+    const { data: ins, error: insErr } = await supabase
+      .from('orders')
+      .insert({
+        order_code,
+        user_id,
+        customer_name: body.customer.name.trim(),
+        customer_email: body.customer.email.trim(),
+        customer_phone: body.customer.phone.trim(),
+        shipping_address: {
+          country: body.shipping.country.trim(),
+          city: body.shipping.city.trim(),
+          address: body.shipping.address.trim(),
+          postal_code: body.shipping.postal_code?.trim() || '',
+        },
+        note: body.note?.trim() || null,
+        payment_method: 'OFFLINE', // 線下支付
+        payment_status: 'UNPAID',  // 等待商戶對帳
+        currency_totals,
+        merchant_totals,
+      })
+      .select('id, order_code')
+      .maybeSingle()
+
+    if (insErr || !ins) {
+      return NextResponse.json(
+        { error: 'create_order_failed', detail: insErr?.message },
+        { status: 500 }
+      )
+    }
+
+    // --- 建立 order_items ---
+    const itemsRows = body.items.map((it) => ({
+      order_id: ins.id,
       merchant_slug: it.merchant_slug,
       ig_media_id: it.ig_media_id,
       title: it.title,
       image: it.image,
       permalink: it.permalink ?? null,
       caption: it.caption ?? null,
-      price: typeof it.price === 'number' ? it.price : 0,
+      price: asMoney(it.price, 0),
       currency: (it.currency || 'HKD').toUpperCase(),
-      qty: Math.max(1, Number(it.qty || 1)),
+      qty: Math.max(1, asInt(it.qty, 1)),
     }))
-    {
-      const { error } = await supabase.from('order_items').insert(rows)
-      if (error) {
-        return NextResponse.json({ error: 'create_items_failed', detail: error.message }, { status: 500 })
-      }
+
+    const { error: itemsErr } = await supabase.from('order_items').insert(itemsRows)
+    if (itemsErr) {
+      return NextResponse.json(
+        { error: 'create_items_failed', detail: itemsErr.message },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ ok: true, order_code: orderCode })
+    // ✅ 成功
+    return NextResponse.json({ ok: true, order_code: ins.order_code })
   } catch (e: any) {
-    return NextResponse.json({ error: 'server_error', detail: String(e?.message || e) }, { status: 500 })
+    return NextResponse.json(
+      { error: 'internal_error', detail: e?.message || String(e) },
+      { status: 500 }
+    )
   }
 }
