@@ -100,7 +100,7 @@ export default function LoginClient({ redirect }: { redirect: string }) {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="•••••••••"
             required
           />
         </div>
