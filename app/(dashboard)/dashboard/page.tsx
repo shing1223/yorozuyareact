@@ -7,19 +7,22 @@ export const dynamic = 'force-dynamic'
 
 export default async function DashboardHome() {
   const supabase = await createSupabaseServer()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login?redirect=/dashboard')
+
+  // ✅ 改用 getUser 做伺服端驗證
+  const { data: { user }, error: userErr } = await supabase.auth.getUser()
+  if (userErr || !user) {
+    redirect('/login?redirect=/dashboard')
+  }
 
   // 僅允許 owner 進入
   const { data: ownerMembership, error: memErr } = await supabase
     .from('membership')
     .select('merchant_id, role')
-    .eq('user_id', session.user.id)
-    .eq('role', 'owner')       // ✅ 僅 owner
+    .eq('user_id', user.id)      // ✅ 這裡改成 user.id
+    .eq('role', 'owner')
     .maybeSingle()
 
   if (!ownerMembership || memErr) {
-    // 不是 owner 或沒有綁商戶 → 退回首頁（可改成 /settings 或自訂 no-access 頁）
     redirect('/?noaccess=dashboard')
   }
 
