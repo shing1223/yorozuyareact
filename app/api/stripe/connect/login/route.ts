@@ -1,33 +1,30 @@
 // app/api/stripe/connect/login/route.ts
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createSupabaseServer } from "@/lib/supabase-server"
+import { createClient } from "@supabase/supabase-js"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+)
 
 export async function GET(req: Request) {
-  const supabase = await createSupabaseServer()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return NextResponse.redirect(new URL("/login?redirect=/dashboard", req.url))
-  }
+  const { searchParams } = new URL(req.url)
+  const merchant = searchParams.get("merchant")
+  if (!merchant) return NextResponse.json({ error: "missing_merchant" }, { status: 400 })
 
-  const merchant = new URL(req.url).searchParams.get("merchant")?.toLowerCase()
-  if (!merchant) {
-    return NextResponse.json({ error: "missing_merchant" }, { status: 400 })
-  }
-
-  const { data: m } = await supabase
+  const { data } = await supabaseAdmin
     .from("merchants")
     .select("stripe_account_id")
     .eq("slug", merchant)
     .maybeSingle()
 
-  if (!m?.stripe_account_id) {
-    return NextResponse.redirect(new URL(`/dashboard?stripe=not_linked`, req.url))
+  if (!data?.stripe_account_id) {
+    return NextResponse.redirect(new URL(`/dashboard?stripe=missing`, req.url))
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-  const link = await stripe.accounts.createLoginLink(m.stripe_account_id)
-  return NextResponse.redirect(link.url, { status: 303 })
+  const link = await stripe.accounts.createLoginLink(data.stripe_account_id)
+  return NextResponse.redirect(link.url)
 }

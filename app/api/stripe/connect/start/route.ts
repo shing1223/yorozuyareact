@@ -1,62 +1,56 @@
 // app/api/stripe/connect/start/route.ts
-import { NextResponse } from "next/server"
-import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { NextResponse } from 'next/server'
+import Stripe from 'stripe'
+import { createClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const SITE_URL = process.env.SITE_URL!
 
-const supabaseAdmin = createClient(
+const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!, // ★ service role
   { auth: { persistSession: false } }
 )
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.maxhse.com"
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const merchant = searchParams.get("merchant")
-  if (!merchant) {
-    return NextResponse.json({ error: "missing_merchant" }, { status: 400 })
-  }
+  const merchant = (searchParams.get('merchant') || '').trim().toLowerCase()
+  if (!merchant) return NextResponse.redirect(`${SITE_URL}/dashboard?stripe=missing`)
 
-  // 先查有沒有已經連線過
-  const { data: existing } = await supabaseAdmin
-    .from("merchants")
-    .select("stripe_account_id")
-    .eq("slug", merchant)
+  // 1) 取商戶
+  const { data: m, error } = await admin
+    .from('merchants')
+    .select('slug, stripe_account_id')
+    .eq('slug', merchant)
     .maybeSingle()
+  if (error || !m) return NextResponse.redirect(`${SITE_URL}/dashboard?stripe=missing`)
 
-  let accountId = existing?.stripe_account_id
-
-  // 若還沒有 → 新增一個 Stripe Express 帳號
+  // 2) 沒有 account 就建立；建立後立刻寫回 DB
+  let accountId = m.stripe_account_id || null
   if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      capabilities: {
-        transfers: { requested: true },
-      },
-      business_type: "individual",
+    const acct = await stripe.accounts.create({
+      type: 'express',
+      country: 'HK',                // 或依你的商戶所在地
       metadata: { merchant_slug: merchant },
+      capabilities: { transfers: { requested: true } } // 如需轉帳
     })
+    accountId = acct.id
 
-    accountId = account.id
-
-    // 寫入 DB
-    await supabaseAdmin
-      .from("merchants")
+    const { error: updErr } = await admin
+      .from('merchants')
       .update({ stripe_account_id: accountId })
-      .eq("slug", merchant)
+      .eq('slug', merchant)
+
+    if (updErr) return NextResponse.redirect(`${SITE_URL}/dashboard?stripe=missing`)
   }
 
-  // ✅ 建立 onboarding link
-  const accountLink = await stripe.accountLinks.create({
+  // 3) 建 Account Link 並導向
+  const link = await stripe.accountLinks.create({
     account: accountId,
+    type: 'account_onboarding',
     refresh_url: `${SITE_URL}/dashboard?stripe=refresh`,
-    return_url: `${SITE_URL}/api/stripe/connect/callback?merchant=${merchant}`,
-    type: "account_onboarding",
+    return_url:  `${SITE_URL}/dashboard?stripe=done`, // 或導到 callback
   })
 
-  // 導去 Stripe Onboarding 頁面
-  return NextResponse.redirect(accountLink.url)
+  return NextResponse.redirect(link.url, { status: 303 })
 }
