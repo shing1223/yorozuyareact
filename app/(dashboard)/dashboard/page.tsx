@@ -30,6 +30,13 @@ export default async function DashboardHome() {
     .trim()
     .toLowerCase()
 
+    // ③ 再來查 merchants 表的 Stripe 狀態
+const { data: merchantInfo } = await supabase
+  .from('merchants')
+  .select('slug, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted')
+  .eq('slug', merchant)
+  .maybeSingle()
+
   // 下面所有查詢都用 owner 的 merchant
   const { data: acct } = await supabase
     .from('ig_account')
@@ -113,34 +120,49 @@ export default async function DashboardHome() {
       )}
 
       {/* 收款設定（Stripe Connect） */}
+{/* 收款設定（Stripe Connect） */}
 <section className="space-y-3 rounded border p-4">
   <h2 className="text-lg font-medium">收款設定</h2>
 
-  {/* 從 merchants 取出 stripe 狀態 */}
-  {/*
-    你也可以先在上面那段 SSR 查詢 merchants 的 stripe_* 欄位，
-    這裡為簡潔起見，用「快速方案」：讓使用者直接點連結，
-    連線成功返回 /dashboard?stripe=connected
-  */}
-  <div className="space-y-2">
-    <a
-      href={`/api/stripe/connect/start?merchant=${merchant}`}
-      className="inline-flex items-center rounded bg-black px-3 py-2 text-white hover:opacity-90"
-    >
-      連結 Stripe（Express）
-    </a>
+  {/** 假設你上面 SSR 已取 merchants 的 stripe_* 欄位，放在變數 acct 或 merchantInfo 中 */}
+  {merchantInfo?.stripe_account_id && merchantInfo?.stripe_details_submitted ? (
+    // ✅ 已連結 Stripe
+    <div className="space-y-2 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-3 w-3 rounded-full bg-green-500"></span>
+        <span>已成功連結 Stripe 帳號</span>
+      </div>
 
-    <div className="text-sm text-gray-500">
-      已連線的商戶可使用：
+      <div className="text-gray-600">
+        <p>帳號 ID：<code>{merchantInfo.stripe_account_id}</code></p>
+        <p>
+          狀態：
+          {merchantInfo.stripe_charges_enabled ? '可收款' : '待啟用收款'}、
+          {merchantInfo.stripe_payouts_enabled ? '可提款' : '待啟用提款'}
+        </p>
+      </div>
+
       <a
         href={`/api/stripe/connect/login?merchant=${merchant}`}
-        className="ml-1 underline"
+        className="inline-flex items-center rounded bg-black px-3 py-2 text-white hover:opacity-90"
       >
-        開啟 Stripe 商家後台
+        前往 Stripe 商家後台
       </a>
-      ．若未完成認證，系統會引導你繼續。
     </div>
-  </div>
+  ) : (
+    // ❌ 尚未連結
+    <div className="space-y-2">
+      <a
+        href={`/api/stripe/connect/start?merchant=${merchant}`}
+        className="inline-flex items-center rounded bg-black px-3 py-2 text-white hover:opacity-90"
+      >
+        連結 Stripe（Express）
+      </a>
+      <p className="text-sm text-gray-500">
+        尚未完成連結，請點上方按鈕開始 Stripe Connect 帳號建立流程。
+      </p>
+    </div>
+  )}
 </section>
 
       <section className="space-y-2">
