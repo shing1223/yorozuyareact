@@ -16,7 +16,7 @@ const stripe = new Stripe(STRIPE_KEY)
 // ✅ admin client：強制用 SR key，不用 cookie / session
 const admin = createClient(SUPABASE_URL, SR_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
-  global: { headers: { Authorization: `Bearer ${SR_KEY}` } },
+  //global: { headers: { Authorization: `Bearer ${SR_KEY}` } },
 })
 
 export async function GET(req: Request) {
