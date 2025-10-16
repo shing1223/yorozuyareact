@@ -1,12 +1,12 @@
 // app/api/checkout/online/route.ts
 import { NextResponse } from "next/server"
-
-// 不要帶 apiVersion（避免型別不匹配），確保已安裝：pnpm add stripe
 import Stripe from "stripe"
+import { createClient } from "@supabase/supabase-js"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
+// ---- types ----
 type CartItem = {
   merchant_slug: string
   ig_media_id: string
@@ -26,9 +26,13 @@ type Incoming = {
   items: CartItem[]
 }
 
-const ZERO_DECIMAL = new Set(["JPY", "KRW", "TWD"]) // 其餘常見：HKD/USD 都是 2 位小數
+// ---- helpers ----
+const ZERO_DECIMAL = new Set(["JPY", "KRW", "TWD"]) // HKD/USD -> 2 decimals
 const toAmount = (currency: string, n: number) =>
   ZERO_DECIMAL.has(currency) ? Math.round(n) : Math.round(n * 100)
+
+const moneyFromMinor = (currency: string, minor: number) =>
+  ZERO_DECIMAL.has(currency) ? minor : Math.round(minor) / 100
 
 function requireEnv(name: string) {
   const v = process.env[name]
@@ -47,6 +51,18 @@ function genOrderCode() {
   )
 }
 
+// ---- env + clients ----
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY")
+// 建議統一用 SITE_URL（若你現在線上用 NEXT_PUBLIC_SITE_URL，也會 fallback）
+const SITE_URL = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+
+const stripe = new Stripe(STRIPE_SECRET_KEY)
+const db = createClient(
+  requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+  requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  { auth: { persistSession: false } }
+)
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Incoming
@@ -62,23 +78,68 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "multi_currency_not_supported" }, { status: 400 })
     }
     const currency = Array.from(currencySet)[0]
-    const total = body.items.reduce((sum, it) => {
+
+    const totalMajor = body.items.reduce((sum, it) => {
       const p = typeof it.price === "number" ? it.price : 0
       return sum + p * (it.qty || 1)
     }, 0)
-    if (total <= 0) {
+    if (totalMajor <= 0) {
       return NextResponse.json({ error: "zero_total_not_supported" }, { status: 400 })
     }
 
-    const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY")
-    const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-
-    const stripe = new Stripe(STRIPE_SECRET_KEY)
-
-    // 建立訂單編號（你也可先寫入 DB，再把 order_id / order_code 放 metadata）
+    // 產生訂單代碼（前端成功頁會用到；webhook 也用 metadata 對應）
     const orderCode = genOrderCode()
 
-    // 轉成 Stripe line_items
+    // 先把訂單寫進 DB（UNPAID）
+    const currencyTotals: Record<string, number> = { [currency]: totalMajor }
+    const merchantTotals: Record<string, any> = {}
+    for (const it of body.items) {
+      const m = it.merchant_slug
+      merchantTotals[m] = merchantTotals[m] || {}
+      merchantTotals[m][currency] = (merchantTotals[m][currency] || 0) + (it.price || 0) * (it.qty || 1)
+    }
+
+    // 建立 order
+    const { data: orderRow, error: orderErr } = await db
+      .from("orders")
+      .insert({
+        order_code: orderCode,
+        customer_name: body.customer?.name || "",
+        customer_email: body.customer?.email || "",
+        customer_phone: body.customer?.phone || "",
+        shipping_address: body.shipping,
+        note: body.note || "",
+        payment_method: "STRIPE",
+        payment_status: "UNPAID",
+        currency_totals: currencyTotals,
+        merchant_totals: merchantTotals,
+      })
+      .select("id")
+      .maybeSingle()
+
+    if (orderErr || !orderRow) {
+      throw new Error(orderErr?.message || "insert_order_failed")
+    }
+
+    // 建立 order_items（批次）
+    const itemsRows = body.items.map(it => ({
+      order_id: orderRow.id,
+      merchant_slug: it.merchant_slug,
+      ig_media_id: it.ig_media_id,
+      title: firstLine(it.title) || `@${it.merchant_slug} 商品`,
+      image: it.image || "",
+      permalink: it.permalink || null,
+      caption: it.caption || null,
+      price: it.price ?? 0,
+      currency: (it.currency || currency).toUpperCase(),
+      qty: it.qty || 1,
+      meta: {},
+    }))
+
+    const { error: itemsErr } = await db.from("order_items").insert(itemsRows)
+    if (itemsErr) throw new Error(itemsErr.message || "insert_items_failed")
+
+    // 轉換成 Stripe line_items
     const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map((it) => {
       const unit = typeof it.price === "number" ? it.price : 0
       const qty = it.qty || 1
@@ -100,49 +161,45 @@ export async function POST(req: Request) {
       }
     })
 
-    // 可選：先在 DB 建立 orders / order_items（沿用你 offline 的邏輯）
-    // 若要這步，建議把 order_code / user_id 等存在 Stripe metadata，webhook 會用得到。
-
-   const session = await stripe.checkout.sessions.create({
-  mode: "payment",
-
-  // 每個商品明細
-  line_items,
-
-  // Stripe 要求金額單位在 line_items 裡；這裡補上 currency 是保險
-  currency: currency.toLowerCase(),
-
-  // 成功/失敗導回網址
-  success_url: `${SITE_URL}/checkout/success?order=${orderCode}&session_id={CHECKOUT_SESSION_ID}`,
-  cancel_url: `${SITE_URL}/checkout?canceled=1`,
-
-  // ✅ 預填購買者資料
-  customer_email: body.customer?.email || undefined,
-  phone_number_collection: { enabled: true },
-  shipping_address_collection: {
-    allowed_countries: ["HK", "TW", "US", "CN", "MO", "JP", "KR"],
-  },
-
-  // ✅ 自訂資料（Session 層級）
-  metadata: {
-    order_code: orderCode,
-    note: body.note || "",
-  },
-
-  // ✅ 關鍵：PaymentIntent 也帶入 metadata
-  payment_intent_data: {
-    metadata: {
-      order_code: orderCode,
-      note: body.note || "",
-    },
-  },
-});
+    // 建立 Stripe Checkout Session（把 order_code 寫進 session & payment_intent 的 metadata）
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items,
+      currency: currency.toLowerCase(),
+      success_url: `${SITE_URL}/checkout/success?order=${orderCode}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${SITE_URL}/checkout?canceled=1`,
+      customer_email: body.customer?.email || undefined,
+      phone_number_collection: { enabled: true },
+      shipping_address_collection: {
+        allowed_countries: ["HK", "TW", "US", "CN", "MO", "JP", "KR"],
+      },
+      metadata: {
+        order_code: orderCode,
+        note: body.note || "",
+      },
+      payment_intent_data: {
+        metadata: {
+          order_code: orderCode,
+          note: body.note || "",
+        },
+      },
+    })
 
     if (!session?.url) {
-      return NextResponse.json({ error: "create_session_failed" }, { status: 500 })
+      throw new Error("create_session_failed")
     }
 
-    return NextResponse.json({ url: session.url, order_code: orderCode })
+    // 回寫 session id，讓你在訂單列表/除錯時更容易對照
+    await db.from("orders")
+      .update({ stripe_session_id: session.id })
+      .eq("id", orderRow.id)
+
+    return NextResponse.json({
+      url: session.url,
+      order_code: orderCode,
+      amount_total: moneyFromMinor(currency, toAmount(currency, totalMajor)),
+      currency,
+    })
   } catch (e: any) {
     console.error("checkout/online error:", e)
     return NextResponse.json(
