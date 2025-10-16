@@ -44,38 +44,108 @@ export default function CollapsibleHeader({
   activeTab?: TabLabel     // 目前啟用的分頁
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null)
-  const [rowH, setRowH] = useState<number>(0)
-  const [collapsed, setCollapsed] = useState(false)
+const [rowH, setRowH] = useState<number>(0)
+const [collapsed, _setCollapsed] = useState(false)
 
-  useLayoutEffect(() => {
-    const el = rowRef.current
-    if (!el) return
-    const measure = () => setRowH(el.scrollHeight)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+// 避免重複 setState：只有值改變才 setState
+const collapsedRef = useRef(collapsed)
+const setCollapsedSafe = (v: boolean) => {
+  if (collapsedRef.current !== v) {
+    collapsedRef.current = v
+    _setCollapsed(v)
+  }
+}
 
-  useEffect(() => {
-    let ticking = false
-    let lastY = window.scrollY
-    const onScroll = () => {
-      if (ticking) return
-      ticking = true
-      requestAnimationFrame(() => {
-        const y = window.scrollY
-        const dy = y - lastY
-        if (y < 24) setCollapsed(false)
-        else if (dy > 6) setCollapsed(true)
-        else if (dy < -6) setCollapsed(false)
-        lastY = y
+useLayoutEffect(() => {
+  const el = rowRef.current
+  if (!el) return
+  const measure = () => setRowH(el.scrollHeight)
+  measure()
+  const ro = new ResizeObserver(measure)
+  ro.observe(el)
+  return () => ro.disconnect()
+}, [])
+
+// ------- 抗抖動 onScroll 策略 -------
+// 1) 使用「方向積分」：連續多次同向捲動才切換狀態（避免底部回彈正負抖動）
+// 2) 切換後設置 cooldown（例如 200ms），期間不再切換
+// 3) 接近底部時直接上鎖為 collapsed=true，直到離開底部閾值（避免觸底抖動）
+useEffect(() => {
+  let ticking = false
+  let lastY = window.scrollY
+  let momentum = 0            // 方向積分
+  const STEP = 1              // 每次累加步長
+  const THRESH = 12           // 積分門檻（越大越不敏感）
+  const COOL_MS = 200         // 切換後冷卻期
+  let lastToggleAt = 0
+
+  const BOTTOM_LOCK_PX = 48   // 距底部 Npx 內直接維持收起
+  const TOP_OPEN_PX = 24      // 距頂 Npx 內直接展開
+
+  const onScroll = () => {
+    if (ticking) return
+    ticking = true
+    requestAnimationFrame(() => {
+      const y = window.scrollY
+      const dy = y - lastY
+      lastY = y
+
+      const now = performance.now()
+      const scroller = document.scrollingElement || document.documentElement
+      const maxY = (scroller?.scrollHeight || 0) - (scroller?.clientHeight || 0)
+      const toBottom = maxY - y
+
+      // 1) 邊界規則：頂部一定展開、靠近底部一定收起（避免觸底回彈抖動）
+      if (y <= TOP_OPEN_PX) {
+        momentum = 0
+        setCollapsedSafe(false)
+        lastToggleAt = now
         ticking = false
-      })
-    }
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [])
+        return
+      }
+      if (toBottom <= BOTTOM_LOCK_PX && maxY > 0) {
+        momentum = 0
+        setCollapsedSafe(true)
+        lastToggleAt = now
+        ticking = false
+        return
+      }
+
+      // 2) 冷卻期內不切換（保護）
+      if (now - lastToggleAt < COOL_MS) {
+        ticking = false
+        return
+      }
+
+      // 3) 方向積分：只有「連續同向」才累積；反向會慢慢歸零再反向累積
+      if (dy > 0) {
+        // 向下
+        momentum = Math.min(momentum + STEP, THRESH)
+      } else if (dy < 0) {
+        // 向上
+        momentum = Math.max(momentum - STEP, -THRESH)
+      } else {
+        // dy==0 不動；略過
+      }
+
+      // 4) 積分達門檻才切換
+      if (momentum >= THRESH) {
+        setCollapsedSafe(true)
+        lastToggleAt = now
+        momentum = 0
+      } else if (momentum <= -THRESH) {
+        setCollapsedSafe(false)
+        lastToggleAt = now
+        momentum = 0
+      }
+
+      ticking = false
+    })
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true })
+  return () => window.removeEventListener("scroll", onScroll)
+}, [])
 
   // 功能格路徑
   const routes: Record<FeatureLabel, string> = {
@@ -124,16 +194,15 @@ export default function CollapsibleHeader({
 
       {/* 彩色功能格 */}
       <div
-        ref={rowRef}
-        aria-hidden={collapsed}
-        className="px-4 will-change-[max-height,opacity,transform]"
-        style={{
-          maxHeight: collapsed ? 0 : rowH,
-          opacity: collapsed ? 0 : 1,
-          transform: collapsed ? "scaleY(0.98)" : "scaleY(1)",
-          transition: "max-height 260ms ease, opacity 200ms ease, transform 260ms ease",
-        }}
-      >
+  ref={rowRef}
+  aria-hidden={collapsed}
+  className="px-4 will-change-[max-height,opacity]"
+  style={{
+    maxHeight: collapsed ? 0 : rowH,
+    opacity: collapsed ? 0 : 1,
+    transition: "max-height 260ms ease, opacity 200ms ease",
+  }}
+>
         <div className="pb-3">
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             {features.map((it) => {
