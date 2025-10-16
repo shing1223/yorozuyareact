@@ -57,6 +57,7 @@ const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY")
 const SITE_URL = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 
 const stripe = new Stripe(STRIPE_SECRET_KEY)
+// 重要：用 Service Role 寫 DB，避免 RLS/權限問題
 const db = createClient(
   requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
   requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
