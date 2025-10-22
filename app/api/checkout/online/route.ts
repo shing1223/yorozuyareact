@@ -1,4 +1,3 @@
-// app/api/checkout/online/route.ts
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
@@ -27,7 +26,7 @@ type Incoming = {
 }
 
 // ---- helpers ----
-const ZERO_DECIMAL = new Set(["JPY", "KRW", "TWD"]) // HKD/USD -> 2 decimals
+const ZERO_DECIMAL = new Set(["JPY", "KRW", "TWD"])
 const toAmount = (currency: string, n: number) =>
   ZERO_DECIMAL.has(currency) ? Math.round(n) : Math.round(n * 100)
 
@@ -53,11 +52,9 @@ function genOrderCode() {
 
 // ---- env + clients ----
 const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY")
-// 建議統一用 SITE_URL（若你現在線上用 NEXT_PUBLIC_SITE_URL，也會 fallback）
 const SITE_URL = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 
 const stripe = new Stripe(STRIPE_SECRET_KEY)
-// 重要：用 Service Role 寫 DB，避免 RLS/權限問題
 const db = createClient(
   requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
   requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -71,10 +68,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "empty_cart" }, { status: 400 })
     }
 
-    // 單一幣別 & 金額 > 0
-    const currencySet = new Set(
-      body.items.map(i => (i.currency || "HKD").toUpperCase())
-    )
+    // --- 1️⃣ 驗證幣別 ---
+    const currencySet = new Set(body.items.map(i => (i.currency || "HKD").toUpperCase()))
     if (currencySet.size !== 1) {
       return NextResponse.json({ error: "multi_currency_not_supported" }, { status: 400 })
     }
@@ -88,19 +83,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "zero_total_not_supported" }, { status: 400 })
     }
 
-    // 產生訂單代碼（前端成功頁會用到；webhook 也用 metadata 對應）
-    const orderCode = genOrderCode()
+    // --- 2️⃣ 查出商戶 Stripe 子帳戶 ID ---
+    const merchantSlug = body.items[0].merchant_slug // 目前以第一個商戶為主
+    const { data: merchant, error: merchantErr } = await db
+      .from("merchants")
+      .select("stripe_account_id")
+      .eq("slug", merchantSlug)
+      .maybeSingle()
 
-    // 先把訂單寫進 DB（UNPAID）
+    if (merchantErr) throw merchantErr
+    if (!merchant?.stripe_account_id) {
+      throw new Error(`Merchant ${merchantSlug} missing stripe_account_id`)
+    }
+
+    const merchantStripeAccountId = merchant.stripe_account_id
+
+    // --- 3️⃣ 建立訂單 ---
+    const orderCode = genOrderCode()
     const currencyTotals: Record<string, number> = { [currency]: totalMajor }
     const merchantTotals: Record<string, any> = {}
+
     for (const it of body.items) {
       const m = it.merchant_slug
       merchantTotals[m] = merchantTotals[m] || {}
-      merchantTotals[m][currency] = (merchantTotals[m][currency] || 0) + (it.price || 0) * (it.qty || 1)
+      merchantTotals[m][currency] =
+        (merchantTotals[m][currency] || 0) + (it.price || 0) * (it.qty || 1)
     }
 
-    // 建立 order
     const { data: orderRow, error: orderErr } = await db
       .from("orders")
       .insert({
@@ -122,7 +131,7 @@ export async function POST(req: Request) {
       throw new Error(orderErr?.message || "insert_order_failed")
     }
 
-    // 建立 order_items（批次）
+    // --- 4️⃣ 寫入 order_items ---
     const itemsRows = body.items.map(it => ({
       order_id: orderRow.id,
       merchant_slug: it.merchant_slug,
@@ -136,12 +145,11 @@ export async function POST(req: Request) {
       qty: it.qty || 1,
       meta: {},
     }))
-
     const { error: itemsErr } = await db.from("order_items").insert(itemsRows)
     if (itemsErr) throw new Error(itemsErr.message || "insert_items_failed")
 
-    // 轉換成 Stripe line_items
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map((it) => {
+    // --- 5️⃣ Stripe line_items ---
+    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = body.items.map(it => {
       const unit = typeof it.price === "number" ? it.price : 0
       const qty = it.qty || 1
       const title = firstLine(it.title) || `@${it.merchant_slug} 商品`
@@ -162,7 +170,7 @@ export async function POST(req: Request) {
       }
     })
 
-    // 建立 Stripe Checkout Session（把 order_code 寫進 session & payment_intent 的 metadata）
+    // --- 6️⃣ 建立 Stripe Checkout Session（含分潤設定） ---
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items,
@@ -174,26 +182,18 @@ export async function POST(req: Request) {
       shipping_address_collection: {
         allowed_countries: ["HK", "TW", "US", "CN", "MO", "JP", "KR"],
       },
-      metadata: {
-        order_code: orderCode,
-        note: body.note || "",
-      },
+      metadata: { order_code: orderCode, note: body.note || "" },
       payment_intent_data: {
-        metadata: {
-          order_code: orderCode,
-          note: body.note || "",
+        metadata: { order_code: orderCode, note: body.note || "" },
+        transfer_data: {
+          destination: merchantStripeAccountId, // ✅ 這裡帶入子帳戶 ID
         },
       },
     })
 
-    if (!session?.url) {
-      throw new Error("create_session_failed")
-    }
+    if (!session?.url) throw new Error("create_session_failed")
 
-    // 回寫 session id，讓你在訂單列表/除錯時更容易對照
-    await db.from("orders")
-      .update({ stripe_session_id: session.id })
-      .eq("id", orderRow.id)
+    await db.from("orders").update({ stripe_session_id: session.id }).eq("id", orderRow.id)
 
     return NextResponse.json({
       url: session.url,
